@@ -58,6 +58,7 @@ set(SBDD2_SOURCES
     src/dd_node_ref.cpp
     src/bdd.cpp
     src/zdd.cpp
+    src/zdd_index.cpp
     src/zdd_helper.cpp
     src/unreduced_bdd.cpp
     src/unreduced_zdd.cpp

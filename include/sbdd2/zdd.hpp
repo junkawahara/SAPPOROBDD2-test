@@ -11,7 +11,10 @@
 #define SBDD2_ZDD_HPP
 
 #include "dd_base.hpp"
+#include "zdd_index.hpp"
 #include <string>
+#include <mutex>
+#include <memory>
 
 namespace sbdd2 {
 
@@ -55,28 +58,108 @@ class ZDD : public DDBase {
     friend class DDNodeRef;
     friend class BDD;
 
+private:
+    /// @name インデックスキャッシュ（mutableでconstメソッドから変更可能）
+    /// @{
+    /// once_flagはリセットできないためunique_ptrでラップ
+    mutable std::unique_ptr<std::once_flag> index_once_flag_;
+    mutable std::unique_ptr<ZDDIndexData> index_cache_;
+
+#ifdef SBDD2_HAS_GMP
+    mutable std::unique_ptr<std::once_flag> exact_index_once_flag_;
+    mutable std::unique_ptr<ZDDExactIndexData> exact_index_cache_;
+#endif
+    /// @}
+
 public:
     /// @name コンストラクタ
     /// @{
 
     /// デフォルトコンストラクタ（無効なZDDを作成）
-    ZDD() : DDBase() {}
+    ZDD() : DDBase(),
+        index_once_flag_(new std::once_flag()),
+        index_cache_(nullptr)
+#ifdef SBDD2_HAS_GMP
+        , exact_index_once_flag_(new std::once_flag())
+        , exact_index_cache_(nullptr)
+#endif
+    {}
 
     /**
      * @brief マネージャーとアークからの構築（内部使用）
      * @param mgr DDマネージャーへのポインタ
      * @param a アーク
      */
-    ZDD(DDManager* mgr, Arc a) : DDBase(mgr, a) {}
+    ZDD(DDManager* mgr, Arc a) : DDBase(mgr, a),
+        index_once_flag_(new std::once_flag()),
+        index_cache_(nullptr)
+#ifdef SBDD2_HAS_GMP
+        , exact_index_once_flag_(new std::once_flag())
+        , exact_index_cache_(nullptr)
+#endif
+    {}
 
-    /// コピーコンストラクタ
-    ZDD(const ZDD&) = default;
-    /// ムーブコンストラクタ
-    ZDD(ZDD&&) noexcept = default;
-    /// コピー代入演算子
-    ZDD& operator=(const ZDD&) = default;
-    /// ムーブ代入演算子
-    ZDD& operator=(ZDD&&) noexcept = default;
+    /**
+     * @brief コピーコンストラクタ
+     * @note インデックスキャッシュはコピーしない
+     */
+    ZDD(const ZDD& other) : DDBase(other),
+        index_once_flag_(new std::once_flag()),
+        index_cache_(nullptr)
+#ifdef SBDD2_HAS_GMP
+        , exact_index_once_flag_(new std::once_flag())
+        , exact_index_cache_(nullptr)
+#endif
+    {}
+
+    /**
+     * @brief ムーブコンストラクタ
+     * @note インデックスキャッシュはムーブしない
+     */
+    ZDD(ZDD&& other) noexcept : DDBase(std::move(other)),
+        index_once_flag_(new std::once_flag()),
+        index_cache_(nullptr)
+#ifdef SBDD2_HAS_GMP
+        , exact_index_once_flag_(new std::once_flag())
+        , exact_index_cache_(nullptr)
+#endif
+    {}
+
+    /**
+     * @brief コピー代入演算子
+     * @note インデックスキャッシュはコピーしない
+     */
+    ZDD& operator=(const ZDD& other) {
+        if (this != &other) {
+            DDBase::operator=(other);
+            // 新しいonce_flagを作成して再構築可能にする
+            index_once_flag_.reset(new std::once_flag());
+            index_cache_.reset();
+#ifdef SBDD2_HAS_GMP
+            exact_index_once_flag_.reset(new std::once_flag());
+            exact_index_cache_.reset();
+#endif
+        }
+        return *this;
+    }
+
+    /**
+     * @brief ムーブ代入演算子
+     * @note インデックスキャッシュはムーブしない
+     */
+    ZDD& operator=(ZDD&& other) noexcept {
+        if (this != &other) {
+            DDBase::operator=(std::move(other));
+            // 新しいonce_flagを作成して再構築可能にする
+            index_once_flag_.reset(new std::once_flag());
+            index_cache_.reset();
+#ifdef SBDD2_HAS_GMP
+            exact_index_once_flag_.reset(new std::once_flag());
+            exact_index_cache_.reset();
+#endif
+        }
+        return *this;
+    }
 
     /**
      * @brief UnreducedZDDからの変換コンストラクタ
@@ -461,6 +544,106 @@ public:
      */
     ZDD divisor() const;
 
+    /// @}
+
+    /// @name インデックス操作（効率的な辞書順アクセス・サンプリング用）
+    /// @{
+
+    /**
+     * @brief インデックスを構築（double版）
+     *
+     * 各ノードから1終端までの経路数をdoubleでキャッシュします。
+     * このメソッドはスレッドセーフで、複数スレッドから同時に呼び出しても
+     * 構築は1回のみ実行されます。
+     *
+     * @note 通常は明示的に呼び出す必要はありません。
+     *       インデックスを使用するメソッドが自動的に構築します。
+     */
+    void build_index() const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief インデックスを構築（GMP版）
+     *
+     * 各ノードから1終端までの経路数をmpz_classでキャッシュします。
+     * 2^53を超える大きな集合族でも正確にカウントできます。
+     *
+     * @note 通常は明示的に呼び出す必要はありません。
+     *       exact_*メソッドが自動的に構築します。
+     */
+    void build_exact_index() const;
+#endif
+
+    /**
+     * @brief インデックスキャッシュをクリア
+     *
+     * double版とGMP版両方のインデックスキャッシュを解放します。
+     * メモリを節約したい場合に使用します。
+     */
+    void clear_index() const;
+
+    /**
+     * @brief インデックスが構築済みか確認（double版）
+     * @return 構築済みならtrue
+     */
+    bool has_index() const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief インデックスが構築済みか確認（GMP版）
+     * @return 構築済みならtrue
+     */
+    bool has_exact_index() const;
+#endif
+
+    /**
+     * @brief インデックスの高さを取得
+     * @return ZDDの高さ（ルートノードのレベル）
+     */
+    int index_height() const;
+
+    /**
+     * @brief インデックスのノード数を取得
+     * @return 総ノード数
+     */
+    std::size_t index_size() const;
+
+    /**
+     * @brief 指定レベルのノード数を取得
+     * @param level レベル
+     * @return そのレベルのノード数
+     */
+    std::size_t index_size_at_level(int level) const;
+
+    /**
+     * @brief インデックスを使ったカウント（double版）
+     * @return 集合族に含まれる集合の数
+     *
+     * インデックスが未構築の場合は自動的に構築します。
+     */
+    double indexed_count() const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief インデックスを使ったカウント（GMP版）
+     * @return 集合族に含まれる集合の数（文字列形式）
+     *
+     * インデックスが未構築の場合は自動的に構築します。
+     */
+    std::string indexed_exact_count() const;
+#endif
+
+    /// @}
+
+private:
+    /// @name インデックス構築ヘルパー
+    /// @{
+    void ensure_index() const;
+    void build_index_impl() const;
+#ifdef SBDD2_HAS_GMP
+    void ensure_exact_index() const;
+    void build_exact_index_impl() const;
+#endif
     /// @}
 };
 

@@ -529,3 +529,142 @@ TEST(ZDDExactCountTest, LargeCount) {
     EXPECT_EQ(exact_str, "1048576");
 }
 #endif
+
+// ============== ZDD Index Tests ==============
+
+class ZDDIndexTest : public ::testing::Test {
+protected:
+    DDManager mgr;
+
+    void SetUp() override {
+        for (int i = 0; i < 5; ++i) {
+            mgr.new_var();
+        }
+    }
+};
+
+TEST_F(ZDDIndexTest, EmptyAndBase) {
+    ZDD empty = ZDD::empty(mgr);
+    ZDD base = ZDD::base(mgr);
+
+    // Empty set
+    EXPECT_FALSE(empty.has_index());
+    EXPECT_EQ(empty.indexed_count(), 0.0);
+    EXPECT_EQ(empty.index_height(), 0);
+    EXPECT_EQ(empty.index_size(), 0u);
+
+    // Base (1-terminal)
+    EXPECT_EQ(base.indexed_count(), 1.0);
+    EXPECT_EQ(base.index_height(), 0);
+    EXPECT_EQ(base.index_size(), 0u);
+}
+
+TEST_F(ZDDIndexTest, SingleElement) {
+    ZDD s1 = ZDD::single(mgr, 1);
+
+    EXPECT_EQ(s1.indexed_count(), 1.0);
+    EXPECT_EQ(s1.index_height(), 1);
+    EXPECT_EQ(s1.index_size(), 1u);
+    EXPECT_EQ(s1.index_size_at_level(1), 1u);
+    EXPECT_TRUE(s1.has_index());
+}
+
+TEST_F(ZDDIndexTest, TwoElements) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    EXPECT_EQ(u.card(), 2.0);
+    EXPECT_EQ(u.indexed_count(), 2.0);
+}
+
+TEST_F(ZDDIndexTest, MultipleElements) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD u = s1 + s2 + s3;  // {{1}, {2}, {3}}
+
+    EXPECT_EQ(u.card(), 3.0);
+    EXPECT_EQ(u.indexed_count(), 3.0);
+    EXPECT_EQ(u.index_height(), 3);
+}
+
+TEST_F(ZDDIndexTest, PowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // 2^3 = 8 sets
+
+    EXPECT_EQ(ps.indexed_count(), 8.0);
+    EXPECT_EQ(ps.index_height(), 3);
+}
+
+TEST_F(ZDDIndexTest, MatchesCard) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s3 = ZDD::single(mgr, 3);
+
+    // Various combinations
+    ZDD u12 = s1 + s2;
+    ZDD u123 = s1 + s2 + s3;
+    ZDD prod = s1.product(s2);
+    ZDD complex = (s1 + s2).product(s3) + ZDD::base(mgr);
+
+    EXPECT_EQ(u12.indexed_count(), u12.card());
+    EXPECT_EQ(u123.indexed_count(), u123.card());
+    EXPECT_EQ(prod.indexed_count(), prod.card());
+    EXPECT_EQ(complex.indexed_count(), complex.card());
+}
+
+TEST_F(ZDDIndexTest, ClearIndex) {
+    ZDD ps = get_power_set(mgr, 3);
+
+    // Build index
+    EXPECT_EQ(ps.indexed_count(), 8.0);
+    EXPECT_TRUE(ps.has_index());
+
+    // Clear index
+    ps.clear_index();
+    EXPECT_FALSE(ps.has_index());
+
+    // Rebuild automatically
+    EXPECT_EQ(ps.indexed_count(), 8.0);
+    EXPECT_TRUE(ps.has_index());
+}
+
+TEST_F(ZDDIndexTest, CopyDoesNotShareIndex) {
+    ZDD ps = get_power_set(mgr, 3);
+
+    // Build index on original
+    ps.build_index();
+    EXPECT_TRUE(ps.has_index());
+
+    // Copy should not have index
+    ZDD ps_copy = ps;
+    EXPECT_FALSE(ps_copy.has_index());
+
+    // But should give same count
+    EXPECT_EQ(ps_copy.indexed_count(), ps.indexed_count());
+    EXPECT_TRUE(ps_copy.has_index());
+}
+
+#ifdef SBDD2_HAS_GMP
+TEST_F(ZDDIndexTest, ExactCountMatches) {
+    ZDD ps = get_power_set(mgr, 3);
+
+    // Compare indexed_exact_count with exact_count
+    EXPECT_EQ(ps.indexed_exact_count(), ps.exact_count());
+    EXPECT_TRUE(ps.has_exact_index());
+
+    // Clear and rebuild
+    ps.clear_index();
+    EXPECT_FALSE(ps.has_exact_index());
+    EXPECT_EQ(ps.indexed_exact_count(), "8");
+    EXPECT_TRUE(ps.has_exact_index());
+}
+
+TEST_F(ZDDIndexTest, ExactCountEmpty) {
+    ZDD empty = ZDD::empty(mgr);
+    EXPECT_EQ(empty.indexed_exact_count(), "0");
+
+    ZDD base = ZDD::base(mgr);
+    EXPECT_EQ(base.indexed_exact_count(), "1");
+}
+#endif
