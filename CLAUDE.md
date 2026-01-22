@@ -62,6 +62,11 @@ make -j4
   - BDD: `&`(AND), `|`(OR), `^`(XOR), `~`(NOT)
   - ZDD: `+`(Union), `-`(Diff), `*`(Intersect), `/`(Quotient), `%`(Remainder)
 
+## Git Workflow
+
+- **Commit frequently**: Make small, incremental commits after completing each feature or fix
+- Do not batch multiple unrelated changes into a single commit
+
 ## Design Notes
 
 1. **Negation edges**: BDD uses negation edges (NOT is O(1))
