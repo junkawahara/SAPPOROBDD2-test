@@ -872,3 +872,301 @@ TEST_F(ZDDIndexTest, ExactSumWeight) {
     EXPECT_EQ(ps.exact_sum_weight(weights), std::to_string(ps.sum_weight(weights)));
 }
 #endif
+
+// ============== Random Sampling Tests ==============
+
+TEST_F(ZDDIndexTest, SampleRandomlyEmpty) {
+    ZDD empty = ZDD::empty(mgr);
+
+    std::mt19937 rng(42);
+    std::set<bddvar> result = empty.sample_randomly(rng);
+    EXPECT_TRUE(result.empty());
+}
+
+TEST_F(ZDDIndexTest, SampleRandomlyBase) {
+    ZDD base = ZDD::base(mgr);
+
+    std::mt19937 rng(42);
+    std::set<bddvar> result = base.sample_randomly(rng);
+    EXPECT_TRUE(result.empty());  // Base contains only the empty set
+}
+
+TEST_F(ZDDIndexTest, SampleRandomlySingle) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+
+    std::mt19937 rng(42);
+    std::set<bddvar> result = s1.sample_randomly(rng);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(1), 1u);
+}
+
+TEST_F(ZDDIndexTest, SampleRandomlyTwoSets) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::mt19937 rng(42);
+
+    // Sample multiple times and verify we get valid sets
+    std::set<std::set<bddvar>> seen;
+    for (int i = 0; i < 100; ++i) {
+        std::set<bddvar> result = u.sample_randomly(rng);
+        EXPECT_EQ(result.size(), 1u);
+        EXPECT_TRUE(result.count(1) == 1 || result.count(2) == 1);
+        seen.insert(result);
+    }
+    // With 100 samples from 2 sets, we should see both
+    EXPECT_EQ(seen.size(), 2u);
+}
+
+TEST_F(ZDDIndexTest, SampleRandomlyPowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::mt19937 rng(42);
+
+    // All sampled sets should be valid members
+    auto all_sets = ps.enumerate();
+    std::set<std::set<bddvar>> valid_sets;
+    for (const auto& vec : all_sets) {
+        valid_sets.insert(std::set<bddvar>(vec.begin(), vec.end()));
+    }
+
+    for (int i = 0; i < 50; ++i) {
+        std::set<bddvar> result = ps.sample_randomly(rng);
+        EXPECT_TRUE(valid_sets.count(result) > 0) << "Sampled invalid set";
+    }
+}
+
+TEST_F(ZDDIndexTest, SampleRandomlyDistribution) {
+    ZDD ps = get_power_set(mgr, 2);  // 4 sets: {}, {1}, {2}, {1,2}
+
+    std::mt19937 rng(12345);
+
+    // Sample many times and check distribution
+    std::map<std::set<bddvar>, int> counts;
+    const int N = 1000;
+    for (int i = 0; i < N; ++i) {
+        std::set<bddvar> result = ps.sample_randomly(rng);
+        counts[result]++;
+    }
+
+    // Each set should appear roughly N/4 = 250 times
+    // Allow significant deviation due to randomness
+    EXPECT_EQ(counts.size(), 4u);  // All 4 sets should appear
+    for (const auto& kv : counts) {
+        EXPECT_GT(kv.second, N/10);  // At least 10% each
+    }
+}
+
+#ifdef SBDD2_HAS_GMP
+TEST_F(ZDDIndexTest, ExactSampleRandomlyPowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::mt19937 rng(42);
+
+    // All sampled sets should be valid members
+    auto all_sets = ps.enumerate();
+    std::set<std::set<bddvar>> valid_sets;
+    for (const auto& vec : all_sets) {
+        valid_sets.insert(std::set<bddvar>(vec.begin(), vec.end()));
+    }
+
+    for (int i = 0; i < 50; ++i) {
+        std::set<bddvar> result = ps.exact_sample_randomly(rng);
+        EXPECT_TRUE(valid_sets.count(result) > 0) << "Sampled invalid set";
+    }
+}
+#endif
+
+// ============== Iterator Tests ==============
+
+TEST_F(ZDDIndexTest, DictIteratorEmpty) {
+    ZDD empty = ZDD::empty(mgr);
+
+    int count = 0;
+    for (auto it = empty.dict_begin(); it != empty.dict_end(); ++it) {
+        ++count;
+    }
+    EXPECT_EQ(count, 0);
+}
+
+TEST_F(ZDDIndexTest, DictIteratorBase) {
+    ZDD base = ZDD::base(mgr);  // {{}}
+
+    std::vector<std::set<bddvar>> results;
+    for (auto it = base.dict_begin(); it != base.dict_end(); ++it) {
+        results.push_back(*it);
+    }
+
+    EXPECT_EQ(results.size(), 1u);
+    EXPECT_TRUE(results[0].empty());  // Empty set
+}
+
+TEST_F(ZDDIndexTest, DictIteratorSingle) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+
+    std::vector<std::set<bddvar>> results;
+    for (auto it = s1.dict_begin(); it != s1.dict_end(); ++it) {
+        results.push_back(*it);
+    }
+
+    EXPECT_EQ(results.size(), 1u);
+    EXPECT_EQ(results[0].size(), 1u);
+    EXPECT_EQ(results[0].count(1), 1u);
+}
+
+TEST_F(ZDDIndexTest, DictIteratorPowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::vector<std::set<bddvar>> results;
+    for (auto it = ps.dict_begin(); it != ps.dict_end(); ++it) {
+        results.push_back(*it);
+    }
+
+    EXPECT_EQ(results.size(), 8u);
+
+    // Verify all sets are valid and unique
+    std::set<std::set<bddvar>> seen(results.begin(), results.end());
+    EXPECT_EQ(seen.size(), 8u);
+
+    // Verify order matches get_set
+    for (size_t i = 0; i < results.size(); ++i) {
+        std::set<bddvar> expected = ps.get_set(static_cast<int64_t>(i));
+        EXPECT_EQ(results[i], expected) << "Mismatch at index " << i;
+    }
+}
+
+TEST_F(ZDDIndexTest, DictReverseIterator) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::vector<std::set<bddvar>> results;
+    for (auto it = ps.dict_rbegin(); it != ps.dict_rend(); ++it) {
+        results.push_back(*it);
+    }
+
+    EXPECT_EQ(results.size(), 8u);
+
+    // Verify reverse order
+    for (size_t i = 0; i < results.size(); ++i) {
+        std::set<bddvar> expected = ps.get_set(static_cast<int64_t>(7 - i));
+        EXPECT_EQ(results[i], expected) << "Mismatch at index " << i;
+    }
+}
+
+TEST_F(ZDDIndexTest, WeightMinIterator) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::vector<int64_t> weights = {0, 1, 2, 3};  // weight[i] = i
+
+    std::vector<std::set<bddvar>> results;
+    std::vector<int64_t> weight_values;
+    for (auto it = ps.weight_min_begin(weights); it != ps.weight_min_end(); ++it) {
+        std::set<bddvar> s = *it;
+        results.push_back(s);
+        int64_t w = 0;
+        for (bddvar v : s) {
+            w += weights[v];
+        }
+        weight_values.push_back(w);
+    }
+
+    EXPECT_EQ(results.size(), 8u);
+
+    // Verify weights are non-decreasing
+    for (size_t i = 1; i < weight_values.size(); ++i) {
+        EXPECT_GE(weight_values[i], weight_values[i-1])
+            << "Weight decreased at index " << i;
+    }
+
+    // First should be empty set (weight 0)
+    EXPECT_TRUE(results[0].empty());
+    EXPECT_EQ(weight_values[0], 0);
+}
+
+TEST_F(ZDDIndexTest, WeightMaxIterator) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::vector<int64_t> weights = {0, 1, 2, 3};
+
+    std::vector<std::set<bddvar>> results;
+    std::vector<int64_t> weight_values;
+    for (auto it = ps.weight_max_begin(weights); it != ps.weight_max_end(); ++it) {
+        std::set<bddvar> s = *it;
+        results.push_back(s);
+        int64_t w = 0;
+        for (bddvar v : s) {
+            w += weights[v];
+        }
+        weight_values.push_back(w);
+    }
+
+    EXPECT_EQ(results.size(), 8u);
+
+    // Verify weights are non-increasing
+    for (size_t i = 1; i < weight_values.size(); ++i) {
+        EXPECT_LE(weight_values[i], weight_values[i-1])
+            << "Weight increased at index " << i;
+    }
+
+    // First should be {1,2,3} (weight 6)
+    EXPECT_EQ(results[0].size(), 3u);
+    EXPECT_EQ(weight_values[0], 6);
+}
+
+TEST_F(ZDDIndexTest, RandomIterator) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    std::mt19937 rng(42);
+
+    std::vector<std::set<bddvar>> results;
+    for (auto it = ps.random_begin(rng); it != ps.random_end(); ++it) {
+        results.push_back(*it);
+    }
+
+    // Should enumerate all 8 sets exactly once
+    EXPECT_EQ(results.size(), 8u);
+
+    // All sets should be unique
+    std::set<std::set<bddvar>> seen(results.begin(), results.end());
+    EXPECT_EQ(seen.size(), 8u);
+
+    // All sets should be valid members of the power set
+    auto all_sets = ps.enumerate();
+    std::set<std::set<bddvar>> valid_sets;
+    for (const auto& vec : all_sets) {
+        valid_sets.insert(std::set<bddvar>(vec.begin(), vec.end()));
+    }
+    for (const auto& s : results) {
+        EXPECT_TRUE(valid_sets.count(s) > 0);
+    }
+}
+
+TEST_F(ZDDIndexTest, WeightIteratorSmall) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::vector<int64_t> weights = {0, 10, 20};
+
+    // Min iterator
+    std::vector<std::set<bddvar>> min_results;
+    for (auto it = u.weight_min_begin(weights); it != u.weight_min_end(); ++it) {
+        min_results.push_back(*it);
+    }
+
+    EXPECT_EQ(min_results.size(), 2u);
+    // First should be {1} with weight 10
+    EXPECT_EQ(min_results[0].size(), 1u);
+    EXPECT_EQ(min_results[0].count(1), 1u);
+
+    // Max iterator
+    std::vector<std::set<bddvar>> max_results;
+    for (auto it = u.weight_max_begin(weights); it != u.weight_max_end(); ++it) {
+        max_results.push_back(*it);
+    }
+
+    EXPECT_EQ(max_results.size(), 2u);
+    // First should be {2} with weight 20
+    EXPECT_EQ(max_results[0].size(), 1u);
+    EXPECT_EQ(max_results[0].count(2), 1u);
+}

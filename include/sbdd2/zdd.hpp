@@ -12,10 +12,12 @@
 
 #include "dd_base.hpp"
 #include "zdd_index.hpp"
+#include "zdd_iterators.hpp"
 #include <string>
 #include <set>
 #include <mutex>
 #include <memory>
+#include <random>
 
 namespace sbdd2 {
 
@@ -735,6 +737,159 @@ public:
      */
     std::string exact_sum_weight(const std::vector<int64_t>& weights) const;
 #endif
+
+    /// @}
+
+    /// @name ランダムサンプリング
+    /// @{
+
+    /**
+     * @brief ZDD内から一様ランダムに集合を1つサンプリング
+     * @tparam RNG C++11乱数生成器の型（std::mt19937など）
+     * @param rng 乱数生成器への参照
+     * @return ランダムに選択された集合
+     *
+     * ZDD内の全集合から一様ランダムに1つの集合を選択します。
+     * 内部では辞書順番号をランダムに生成し、get_set()を呼び出します。
+     *
+     * @code{.cpp}
+     * std::mt19937 rng(42);  // シード42で初期化
+     * std::set<bddvar> s = zdd.sample_randomly(rng);
+     * @endcode
+     *
+     * @pre ZDDが空でないこと（is_zero()がfalse）
+     * @note 空のZDDに対して呼び出した場合は空集合を返します
+     */
+    template<typename RNG>
+    std::set<bddvar> sample_randomly(RNG& rng) const {
+        // 空の場合は空集合を返す
+        if (is_zero()) {
+            return std::set<bddvar>();
+        }
+
+        // インデックスを構築（未構築の場合）
+        ensure_index();
+
+        // ルートノードのカウントを取得
+        double total = indexed_count();
+        if (total <= 0) {
+            return std::set<bddvar>();
+        }
+
+        // 0からtotal-1までの一様分布で辞書順番号を生成
+        std::uniform_int_distribution<int64_t> dist(0, static_cast<int64_t>(total) - 1);
+        int64_t order = dist(rng);
+
+        return get_set(order);
+    }
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief ZDD内から一様ランダムに集合を1つサンプリング（GMP版）
+     * @tparam RNG C++11乱数生成器の型
+     * @param rng 乱数生成器への参照
+     * @return ランダムに選択された集合
+     *
+     * 2^53を超える大きな集合族でも一様サンプリングが可能です。
+     * 内部ではGMPの乱数生成を使用します。
+     *
+     * @pre ZDDが空でないこと
+     */
+    template<typename RNG>
+    std::set<bddvar> exact_sample_randomly(RNG& rng) const {
+        // 空の場合は空集合を返す
+        if (is_zero()) {
+            return std::set<bddvar>();
+        }
+
+        // GMP版インデックスを構築してカウントを取得
+        std::string total_str = indexed_exact_count();
+        mpz_class total(total_str);
+
+        if (total <= 0) {
+            return std::set<bddvar>();
+        }
+
+        // GMP乱数生成器を使用
+        gmp_randclass gmp_rng(gmp_randinit_default);
+        // C++乱数生成器からシードを取得
+        std::uniform_int_distribution<unsigned long> seed_dist;
+        gmp_rng.seed(seed_dist(rng));
+
+        // 0からtotal-1までの一様分布で辞書順番号を生成
+        mpz_class order = gmp_rng.get_z_range(total);
+
+        return exact_get_set(order.get_str());
+    }
+#endif
+
+    /// @}
+
+    /// @name イテレータ
+    /// @{
+
+    /**
+     * @brief 辞書順イテレータの開始位置
+     * @return 辞書順で最初の集合を指すイテレータ
+     */
+    DictIterator dict_begin() const;
+
+    /**
+     * @brief 辞書順イテレータの終端位置
+     * @return 終端を指すイテレータ
+     */
+    DictIterator dict_end() const;
+
+    /**
+     * @brief 逆辞書順イテレータの開始位置
+     * @return 逆辞書順で最初の集合（辞書順で最後の集合）を指すイテレータ
+     */
+    DictIterator dict_rbegin() const;
+
+    /**
+     * @brief 逆辞書順イテレータの終端位置
+     * @return 終端を指すイテレータ
+     */
+    DictIterator dict_rend() const;
+
+    /**
+     * @brief 重み昇順イテレータの開始位置
+     * @param weights 各変数の重み
+     * @return 最小重み集合を指すイテレータ
+     */
+    WeightIterator weight_min_begin(const std::vector<int64_t>& weights) const;
+
+    /**
+     * @brief 重み昇順イテレータの終端位置
+     * @return 終端を指すイテレータ
+     */
+    WeightIterator weight_min_end() const;
+
+    /**
+     * @brief 重み降順イテレータの開始位置
+     * @param weights 各変数の重み
+     * @return 最大重み集合を指すイテレータ
+     */
+    WeightIterator weight_max_begin(const std::vector<int64_t>& weights) const;
+
+    /**
+     * @brief 重み降順イテレータの終端位置
+     * @return 終端を指すイテレータ
+     */
+    WeightIterator weight_max_end() const;
+
+    /**
+     * @brief ランダムイテレータの開始位置
+     * @param rng 乱数生成器
+     * @return ランダムに選んだ集合を指すイテレータ
+     */
+    RandomIterator random_begin(std::mt19937& rng) const;
+
+    /**
+     * @brief ランダムイテレータの終端位置
+     * @return 終端を指すイテレータ
+     */
+    RandomIterator random_end() const;
 
     /// @}
 

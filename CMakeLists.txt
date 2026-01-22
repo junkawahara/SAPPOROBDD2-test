@@ -59,6 +59,7 @@ set(SBDD2_SOURCES
     src/bdd.cpp
     src/zdd.cpp
     src/zdd_index.cpp
+    src/zdd_iterators.cpp
     src/zdd_helper.cpp
     src/unreduced_bdd.cpp
     src/unreduced_zdd.cpp
@@ -79,6 +80,8 @@ set(SBDD2_HEADERS
     include/sbdd2/dd_node_ref.hpp
     include/sbdd2/bdd.hpp
     include/sbdd2/zdd.hpp
+    include/sbdd2/zdd_index.hpp
+    include/sbdd2/zdd_iterators.hpp
     include/sbdd2/zdd_helper.hpp
     include/sbdd2/unreduced_bdd.hpp
     include/sbdd2/unreduced_zdd.hpp
