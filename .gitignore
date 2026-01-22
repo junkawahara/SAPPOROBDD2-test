@@ -1,0 +1,53 @@
+# Build directories
+build/
+cmake-build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled objects
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dylib
+*.lib
+*.dll
+*.exe
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.cproject
+.settings/
+*.sublime-*
+
+# Documentation build
+docs/_build/
+docs/_doxygen/
+
+# Test output
+Testing/
+*.gcov
+*.gcda
+*.gcno
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Reference library (not part of this project)
+SAPPOROBDD-plus-plus/
+
+# Design documents (not part of distribution)
+SAPPOROBDD_2.0_design.md
+next_impl.md

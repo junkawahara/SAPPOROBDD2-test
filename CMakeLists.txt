@@ -1,0 +1,103 @@
+cmake_minimum_required(VERSION 3.1)
+project(SAPPOROBDD2 VERSION 2.0.0 LANGUAGES CXX)
+
+# C++11 required
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Options
+option(SBDD2_BUILD_TESTS "Build tests" ON)
+option(SBDD2_BUILD_SHARED "Build shared library" ON)
+option(SBDD2_BUILD_STATIC "Build static library" ON)
+
+# Thread support
+find_package(Threads REQUIRED)
+
+# Include directories
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Source files
+set(SBDD2_SOURCES
+    src/dd_node.cpp
+    src/dd_manager.cpp
+    src/dd_base.cpp
+    src/dd_node_ref.cpp
+    src/bdd.cpp
+    src/zdd.cpp
+    src/unreduced_bdd.cpp
+    src/unreduced_zdd.cpp
+    src/qdd.cpp
+    src/pidd.cpp
+    src/seqbdd.cpp
+    src/gbase.cpp
+    src/bddct.cpp
+    src/io.cpp
+)
+
+# Header files
+set(SBDD2_HEADERS
+    include/sbdd2/types.hpp
+    include/sbdd2/dd_node.hpp
+    include/sbdd2/dd_manager.hpp
+    include/sbdd2/dd_base.hpp
+    include/sbdd2/dd_node_ref.hpp
+    include/sbdd2/bdd.hpp
+    include/sbdd2/zdd.hpp
+    include/sbdd2/unreduced_bdd.hpp
+    include/sbdd2/unreduced_zdd.hpp
+    include/sbdd2/qdd.hpp
+    include/sbdd2/pidd.hpp
+    include/sbdd2/seqbdd.hpp
+    include/sbdd2/gbase.hpp
+    include/sbdd2/bddct.hpp
+    include/sbdd2/io.hpp
+    include/sbdd2/exception.hpp
+    include/sbdd2/sbdd2.hpp
+)
+
+# Static library
+if(SBDD2_BUILD_STATIC)
+    add_library(sbdd2_static STATIC ${SBDD2_SOURCES})
+    target_link_libraries(sbdd2_static PRIVATE Threads::Threads)
+    set_target_properties(sbdd2_static PROPERTIES OUTPUT_NAME sbdd2)
+endif()
+
+# Shared library
+if(SBDD2_BUILD_SHARED)
+    add_library(sbdd2_shared SHARED ${SBDD2_SOURCES})
+    target_link_libraries(sbdd2_shared PRIVATE Threads::Threads)
+    set_target_properties(sbdd2_shared PROPERTIES OUTPUT_NAME sbdd2)
+endif()
+
+# Tests
+if(SBDD2_BUILD_TESTS)
+    enable_testing()
+
+    # Try to find GTest
+    find_package(GTest QUIET)
+
+    if(GTest_FOUND)
+        message(STATUS "Google Test found, building tests")
+        add_subdirectory(tests)
+    else()
+        message(STATUS "Google Test not found, tests will not be built")
+    endif()
+endif()
+
+# Install
+install(DIRECTORY include/sbdd2 DESTINATION include)
+
+if(SBDD2_BUILD_STATIC)
+    install(TARGETS sbdd2_static
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
+endif()
+
+if(SBDD2_BUILD_SHARED)
+    install(TARGETS sbdd2_shared
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+    )
+endif()
