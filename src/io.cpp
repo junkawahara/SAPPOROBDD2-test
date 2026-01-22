@@ -8,6 +8,8 @@
 #include <unordered_set>
 #include <stack>
 #include <algorithm>
+#include <map>
+#include <tuple>
 
 namespace sbdd2 {
 
@@ -525,6 +527,481 @@ bool validate_zdd(const ZDD& zdd) {
     } catch (...) {
         return false;
     }
+}
+
+// ============== Graphillion Format ==============
+// Format: Lines of "node_id lo_id hi_id" with optional "B" header
+// Nodes are 1-indexed, 0 is terminal-0, -1 is terminal-1
+
+ZDD import_zdd_as_graphillion(DDManager& mgr, std::istream& is, int root_level) {
+    std::string line;
+    std::vector<std::tuple<int, int, int>> nodes;  // (lo, hi) pairs indexed by node_id
+    int max_node_id = 0;
+
+    // Skip header if present
+    if (std::getline(is, line)) {
+        if (line.empty() || line[0] == 'B' || line[0] == '#') {
+            // Header line, continue
+        } else {
+            // First data line
+            int id, lo, hi;
+            std::istringstream iss(line);
+            if (iss >> id >> lo >> hi) {
+                nodes.push_back(std::make_tuple(id, lo, hi));
+                max_node_id = std::max(max_node_id, id);
+            }
+        }
+    }
+
+    // Read remaining lines
+    while (std::getline(is, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        int id, lo, hi;
+        std::istringstream iss(line);
+        if (iss >> id >> lo >> hi) {
+            nodes.push_back(std::make_tuple(id, lo, hi));
+            max_node_id = std::max(max_node_id, id);
+        }
+    }
+
+    if (nodes.empty()) {
+        return ZDD::empty(mgr);
+    }
+
+    // Sort by id (descending for bottom-up construction)
+    // Use explicit comparison for C++11 compatibility
+    struct TupleCompare {
+        bool operator()(const std::tuple<int, int, int>& a,
+                        const std::tuple<int, int, int>& b) const {
+            return std::get<0>(a) > std::get<0>(b);
+        }
+    };
+    std::sort(nodes.begin(), nodes.end(), TupleCompare());
+
+    // Build ZDD bottom-up
+    std::unordered_map<int, Arc> arc_map;
+    arc_map[0] = ARC_TERMINAL_0;
+    arc_map[-1] = ARC_TERMINAL_1;
+
+    // Calculate variable for each node (based on position)
+    int current_level = (root_level > 0) ? root_level : static_cast<int>(nodes.size());
+
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        int id = std::get<0>(nodes[i]);
+        int lo = std::get<1>(nodes[i]);
+        int hi = std::get<2>(nodes[i]);
+
+        Arc lo_arc = arc_map.count(lo) ? arc_map[lo] : ARC_TERMINAL_0;
+        Arc hi_arc = arc_map.count(hi) ? arc_map[hi] : ARC_TERMINAL_0;
+
+        bddvar var = static_cast<bddvar>(id);  // Use node id as variable
+        Arc arc = mgr.get_or_create_node_zdd(var, lo_arc, hi_arc, true);
+        arc_map[id] = arc;
+        current_level--;
+    }
+
+    // Root is the node with smallest id (or first in sorted list)
+    int root_id = std::get<0>(nodes.back());
+    return ZDD(&mgr, arc_map[root_id]);
+}
+
+ZDD import_zdd_as_graphillion(DDManager& mgr, const std::string& filename, int root_level) {
+    std::ifstream ifs(filename);
+    if (!ifs) return ZDD::empty(mgr);
+    return import_zdd_as_graphillion(mgr, ifs, root_level);
+}
+
+void export_zdd_as_graphillion(const ZDD& zdd, std::ostream& os, int root_level) {
+    if (!zdd.manager()) return;
+
+    DDManager* mgr = zdd.manager();
+
+    if (zdd.is_terminal()) {
+        if (zdd.is_one()) {
+            os << "1 0 -1\n";  // Single node pointing to terminals
+        }
+        // Empty ZDD outputs nothing
+        return;
+    }
+
+    // Collect nodes
+    std::unordered_set<bddindex> visited;
+    std::vector<bddindex> nodes;
+    std::stack<Arc> stack;
+    stack.push(zdd.arc());
+
+    while (!stack.empty()) {
+        Arc a = stack.top();
+        stack.pop();
+
+        if (a.is_constant()) continue;
+
+        bddindex idx = a.index();
+        if (visited.count(idx)) continue;
+        visited.insert(idx);
+        nodes.push_back(idx);
+
+        const DDNode& node = mgr->node_at(idx);
+        stack.push(node.arc0());
+        stack.push(node.arc1());
+    }
+
+    // Sort by variable (descending)
+    std::sort(nodes.begin(), nodes.end(), [mgr](bddindex a, bddindex b) {
+        return mgr->node_at(a).var() < mgr->node_at(b).var();
+    });
+
+    // Create id mapping (1-indexed)
+    std::unordered_map<bddindex, int> id_map;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        id_map[nodes[i]] = static_cast<int>(i + 1);
+    }
+
+    // Helper to convert arc to graphillion id
+    auto arc_to_id = [&](Arc a) -> int {
+        if (a.is_constant()) {
+            return a.terminal_value() ? -1 : 0;
+        }
+        return id_map[a.index()];
+    };
+
+    // Output header
+    os << "B\n";
+
+    // Output nodes
+    for (bddindex idx : nodes) {
+        const DDNode& node = mgr->node_at(idx);
+        os << id_map[idx] << " "
+           << arc_to_id(node.arc0()) << " "
+           << arc_to_id(node.arc1()) << "\n";
+    }
+}
+
+void export_zdd_as_graphillion(const ZDD& zdd, const std::string& filename, int root_level) {
+    std::ofstream ofs(filename);
+    if (!ofs) return;
+    export_zdd_as_graphillion(zdd, ofs, root_level);
+}
+
+// ============== Knuth Format ==============
+// Format similar to Knuth's TAOCP BDD format
+
+ZDD import_zdd_as_knuth(DDManager& mgr, std::istream& is, bool is_hex, int root_level) {
+    std::string line;
+    std::vector<std::tuple<bddvar, int, int>> nodes;  // (var, lo, hi)
+    int node_count = 0;
+
+    while (std::getline(is, line)) {
+        if (line.empty() || line[0] == '#') continue;
+
+        std::istringstream iss(line);
+        int var, lo, hi;
+
+        if (is_hex) {
+            iss >> std::hex >> var >> lo >> hi;
+        } else {
+            iss >> var >> lo >> hi;
+        }
+
+        if (iss) {
+            nodes.push_back(std::make_tuple(static_cast<bddvar>(var), lo, hi));
+            node_count++;
+        }
+    }
+
+    if (nodes.empty()) {
+        return ZDD::empty(mgr);
+    }
+
+    // Build ZDD (nodes are listed in order, referenced by index)
+    std::vector<Arc> arc_map(node_count + 2);
+    arc_map[0] = ARC_TERMINAL_0;
+    arc_map[1] = ARC_TERMINAL_1;
+
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        bddvar var = std::get<0>(nodes[i]);
+        int lo_idx = std::get<1>(nodes[i]);
+        int hi_idx = std::get<2>(nodes[i]);
+
+        Arc lo_arc = (lo_idx >= 0 && lo_idx < static_cast<int>(arc_map.size())) ?
+                     arc_map[lo_idx] : ARC_TERMINAL_0;
+        Arc hi_arc = (hi_idx >= 0 && hi_idx < static_cast<int>(arc_map.size())) ?
+                     arc_map[hi_idx] : ARC_TERMINAL_0;
+
+        Arc arc = mgr.get_or_create_node_zdd(var, lo_arc, hi_arc, true);
+        arc_map[i + 2] = arc;
+    }
+
+    // Root is the last node
+    return ZDD(&mgr, arc_map[node_count + 1]);
+}
+
+ZDD import_zdd_as_knuth(DDManager& mgr, const std::string& filename, bool is_hex, int root_level) {
+    std::ifstream ifs(filename);
+    if (!ifs) return ZDD::empty(mgr);
+    return import_zdd_as_knuth(mgr, ifs, is_hex, root_level);
+}
+
+void export_zdd_as_knuth(const ZDD& zdd, std::ostream& os, bool is_hex) {
+    if (!zdd.manager()) return;
+
+    DDManager* mgr = zdd.manager();
+
+    if (zdd.is_terminal()) {
+        // Output comment for terminal
+        os << "# " << (zdd.is_one() ? "base" : "empty") << "\n";
+        return;
+    }
+
+    // Collect nodes
+    std::unordered_set<bddindex> visited;
+    std::vector<bddindex> nodes;
+    std::stack<Arc> stack;
+    stack.push(zdd.arc());
+
+    while (!stack.empty()) {
+        Arc a = stack.top();
+        stack.pop();
+
+        if (a.is_constant()) continue;
+
+        bddindex idx = a.index();
+        if (visited.count(idx)) continue;
+        visited.insert(idx);
+        nodes.push_back(idx);
+
+        const DDNode& node = mgr->node_at(idx);
+        stack.push(node.arc0());
+        stack.push(node.arc1());
+    }
+
+    // Sort by variable (ascending, for bottom-up output)
+    std::sort(nodes.begin(), nodes.end(), [mgr](bddindex a, bddindex b) {
+        return mgr->node_at(a).var() > mgr->node_at(b).var();
+    });
+
+    // Create index mapping (2-indexed, 0=terminal0, 1=terminal1)
+    std::unordered_map<bddindex, int> idx_map;
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        idx_map[nodes[i]] = static_cast<int>(i + 2);
+    }
+
+    auto arc_to_idx = [&](Arc a) -> int {
+        if (a.is_constant()) {
+            return a.terminal_value() ? 1 : 0;
+        }
+        return idx_map[a.index()];
+    };
+
+    // Output header comment
+    os << "# ZDD Knuth format\n";
+    os << "# node_count=" << nodes.size() << "\n";
+
+    // Output nodes
+    for (bddindex idx : nodes) {
+        const DDNode& node = mgr->node_at(idx);
+        if (is_hex) {
+            os << std::hex << node.var() << " "
+               << arc_to_idx(node.arc0()) << " "
+               << arc_to_idx(node.arc1()) << std::dec << "\n";
+        } else {
+            os << node.var() << " "
+               << arc_to_idx(node.arc0()) << " "
+               << arc_to_idx(node.arc1()) << "\n";
+        }
+    }
+}
+
+void export_zdd_as_knuth(const ZDD& zdd, const std::string& filename, bool is_hex) {
+    std::ofstream ofs(filename);
+    if (!ofs) return;
+    export_zdd_as_knuth(zdd, ofs, is_hex);
+}
+
+// ============== SVG Format ==============
+
+void export_zdd_as_svg(const ZDD& zdd, std::ostream& os, const SvgExportOptions& options) {
+    if (!zdd.manager()) return;
+
+    DDManager* mgr = zdd.manager();
+
+    // Collect nodes and organize by level
+    std::unordered_set<bddindex> visited;
+    std::map<bddvar, std::vector<bddindex>> levels;  // var -> nodes at that level
+    std::stack<Arc> stack;
+
+    if (!zdd.is_terminal()) {
+        stack.push(zdd.arc());
+    }
+
+    while (!stack.empty()) {
+        Arc a = stack.top();
+        stack.pop();
+
+        if (a.is_constant()) continue;
+
+        bddindex idx = a.index();
+        if (visited.count(idx)) continue;
+        visited.insert(idx);
+
+        const DDNode& node = mgr->node_at(idx);
+        levels[node.var()].push_back(idx);
+
+        stack.push(node.arc0());
+        stack.push(node.arc1());
+    }
+
+    // Calculate positions
+    std::unordered_map<bddindex, std::pair<int, int>> positions;
+    int current_y = options.node_radius + 20;
+    int level_idx = 0;
+
+    // Sort variables
+    std::vector<bddvar> sorted_vars;
+    for (const auto& kv : levels) {
+        sorted_vars.push_back(kv.first);
+    }
+    std::sort(sorted_vars.begin(), sorted_vars.end());
+
+    // Assign positions
+    for (bddvar var : sorted_vars) {
+        const auto& level_nodes = levels[var];
+        int level_width = static_cast<int>(level_nodes.size()) * options.horizontal_gap;
+        int start_x = (options.width - level_width) / 2;
+
+        for (size_t i = 0; i < level_nodes.size(); ++i) {
+            positions[level_nodes[i]] = {
+                start_x + static_cast<int>(i) * options.horizontal_gap + options.horizontal_gap / 2,
+                current_y
+            };
+        }
+        current_y += options.level_gap;
+        level_idx++;
+    }
+
+    // Terminal positions
+    int terminal_y = current_y;
+    int term0_x = options.width / 3;
+    int term1_x = 2 * options.width / 3;
+
+    // Start SVG
+    os << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
+    os << "<svg xmlns=\"http://www.w3.org/2000/svg\" "
+       << "width=\"" << options.width << "\" "
+       << "height=\"" << std::max(options.height, terminal_y + 50) << "\">\n";
+
+    // Style definitions
+    os << "  <defs>\n";
+    os << "    <marker id=\"arrowhead\" markerWidth=\"10\" markerHeight=\"7\" "
+       << "refX=\"9\" refY=\"3.5\" orient=\"auto\">\n";
+    os << "      <polygon points=\"0 0, 10 3.5, 0 7\" fill=\"" << options.edge_1_color << "\"/>\n";
+    os << "    </marker>\n";
+    os << "  </defs>\n";
+
+    // Background
+    os << "  <rect width=\"100%\" height=\"100%\" fill=\"white\"/>\n";
+
+    // Draw edges first (so nodes are on top)
+    for (std::unordered_map<bddindex, std::pair<int, int> >::const_iterator it = positions.begin();
+         it != positions.end(); ++it) {
+        bddindex idx = it->first;
+        int x = it->second.first;
+        int y = it->second.second;
+        const DDNode& node = mgr->node_at(idx);
+
+        // Low edge (dashed)
+        if (node.arc0().is_constant()) {
+            int target_x = node.arc0().terminal_value() ? term1_x : term0_x;
+            os << "  <line x1=\"" << x << "\" y1=\"" << (y + options.node_radius)
+               << "\" x2=\"" << target_x << "\" y2=\"" << terminal_y
+               << "\" stroke=\"" << options.edge_0_color << "\" stroke-dasharray=\"5,5\"/>\n";
+        } else {
+            std::pair<int, int> target = positions.at(node.arc0().index());
+            int tx = target.first, ty = target.second;
+            os << "  <line x1=\"" << x << "\" y1=\"" << (y + options.node_radius)
+               << "\" x2=\"" << tx << "\" y2=\"" << (ty - options.node_radius)
+               << "\" stroke=\"" << options.edge_0_color << "\" stroke-dasharray=\"5,5\"/>\n";
+        }
+
+        // High edge (solid)
+        if (node.arc1().is_constant()) {
+            int target_x = node.arc1().terminal_value() ? term1_x : term0_x;
+            os << "  <line x1=\"" << x << "\" y1=\"" << (y + options.node_radius)
+               << "\" x2=\"" << target_x << "\" y2=\"" << terminal_y
+               << "\" stroke=\"" << options.edge_1_color << "\"/>\n";
+        } else {
+            std::pair<int, int> target = positions.at(node.arc1().index());
+            int tx = target.first, ty = target.second;
+            os << "  <line x1=\"" << x << "\" y1=\"" << (y + options.node_radius)
+               << "\" x2=\"" << tx << "\" y2=\"" << (ty - options.node_radius)
+               << "\" stroke=\"" << options.edge_1_color << "\"/>\n";
+        }
+    }
+
+    // Draw nodes
+    for (std::unordered_map<bddindex, std::pair<int, int> >::const_iterator it = positions.begin();
+         it != positions.end(); ++it) {
+        bddindex idx = it->first;
+        int x = it->second.first;
+        int y = it->second.second;
+        const DDNode& node = mgr->node_at(idx);
+
+        os << "  <circle cx=\"" << x << "\" cy=\"" << y
+           << "\" r=\"" << options.node_radius
+           << "\" fill=\"" << options.node_fill_color
+           << "\" stroke=\"" << options.node_stroke_color << "\"/>\n";
+
+        if (options.show_variable_labels) {
+            os << "  <text x=\"" << x << "\" y=\"" << (y + options.font_size / 3)
+               << "\" text-anchor=\"middle\" font-family=\"" << options.font_family
+               << "\" font-size=\"" << options.font_size << "\">"
+               << "x" << node.var() << "</text>\n";
+        }
+    }
+
+    // Draw terminals
+    if (options.show_terminal_labels || !zdd.is_terminal()) {
+        // Terminal 0
+        os << "  <rect x=\"" << (term0_x - 15) << "\" y=\"" << (terminal_y - 10)
+           << "\" width=\"30\" height=\"20\" fill=\"" << options.terminal_0_color
+           << "\" stroke=\"" << options.node_stroke_color << "\"/>\n";
+        os << "  <text x=\"" << term0_x << "\" y=\"" << (terminal_y + 5)
+           << "\" text-anchor=\"middle\" font-family=\"" << options.font_family
+           << "\" font-size=\"" << options.font_size << "\">0</text>\n";
+
+        // Terminal 1
+        os << "  <rect x=\"" << (term1_x - 15) << "\" y=\"" << (terminal_y - 10)
+           << "\" width=\"30\" height=\"20\" fill=\"" << options.terminal_1_color
+           << "\" stroke=\"" << options.node_stroke_color << "\"/>\n";
+        os << "  <text x=\"" << term1_x << "\" y=\"" << (terminal_y + 5)
+           << "\" text-anchor=\"middle\" font-family=\"" << options.font_family
+           << "\" font-size=\"" << options.font_size << "\">1</text>\n";
+    }
+
+    // Draw root indicator
+    if (!zdd.is_terminal() && !positions.empty()) {
+        std::pair<int, int> root_pos = positions.at(zdd.arc().index());
+        int rx = root_pos.first, ry = root_pos.second;
+        os << "  <line x1=\"" << rx << "\" y1=\"10\" x2=\"" << rx
+           << "\" y2=\"" << (ry - options.node_radius)
+           << "\" stroke=\"" << options.node_stroke_color
+           << "\" marker-end=\"url(#arrowhead)\"/>\n";
+    }
+
+    // Legend
+    os << "  <text x=\"10\" y=\"" << (terminal_y + 40)
+       << "\" font-family=\"" << options.font_family
+       << "\" font-size=\"10\">Dashed: 0-edge, Solid: 1-edge</text>\n";
+
+    os << "</svg>\n";
+}
+
+void export_zdd_as_svg(const ZDD& zdd, const std::string& filename,
+                       const SvgExportOptions& options) {
+    std::ofstream ofs(filename);
+    if (!ofs) return;
+    export_zdd_as_svg(zdd, ofs, options);
 }
 
 } // namespace sbdd2

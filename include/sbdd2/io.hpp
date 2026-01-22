@@ -120,6 +120,124 @@ DDFileFormat detect_format(const std::string& filename);
 bool validate_bdd(const BDD& bdd);
 bool validate_zdd(const ZDD& zdd);
 
+// ============== Graphillion Format ==============
+// Compatible with Graphillion library format
+
+/**
+ * @brief Import ZDD from Graphillion format
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @param root_level ルートレベル（-1で自動検出）
+ * @return インポートされたZDD
+ */
+ZDD import_zdd_as_graphillion(DDManager& mgr, std::istream& is, int root_level = -1);
+
+/**
+ * @brief Import ZDD from Graphillion format file
+ * @param mgr DDマネージャー
+ * @param filename ファイル名
+ * @param root_level ルートレベル
+ * @return インポートされたZDD
+ */
+ZDD import_zdd_as_graphillion(DDManager& mgr, const std::string& filename, int root_level = -1);
+
+/**
+ * @brief Export ZDD to Graphillion format
+ * @param zdd エクスポートするZDD
+ * @param os 出力ストリーム
+ * @param root_level ルートレベル（-1で自動）
+ */
+void export_zdd_as_graphillion(const ZDD& zdd, std::ostream& os, int root_level = -1);
+
+/**
+ * @brief Export ZDD to Graphillion format file
+ * @param zdd エクスポートするZDD
+ * @param filename ファイル名
+ * @param root_level ルートレベル
+ */
+void export_zdd_as_graphillion(const ZDD& zdd, const std::string& filename, int root_level = -1);
+
+// ============== Knuth Format ==============
+// Compatible with Knuth's BDD format
+
+/**
+ * @brief Import ZDD from Knuth format
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @param is_hex 16進数形式かどうか
+ * @param root_level ルートレベル
+ * @return インポートされたZDD
+ */
+ZDD import_zdd_as_knuth(DDManager& mgr, std::istream& is, bool is_hex = false, int root_level = -1);
+
+/**
+ * @brief Import ZDD from Knuth format file
+ * @param mgr DDマネージャー
+ * @param filename ファイル名
+ * @param is_hex 16進数形式かどうか
+ * @param root_level ルートレベル
+ * @return インポートされたZDD
+ */
+ZDD import_zdd_as_knuth(DDManager& mgr, const std::string& filename, bool is_hex = false, int root_level = -1);
+
+/**
+ * @brief Export ZDD to Knuth format
+ * @param zdd エクスポートするZDD
+ * @param os 出力ストリーム
+ * @param is_hex 16進数形式で出力するか
+ */
+void export_zdd_as_knuth(const ZDD& zdd, std::ostream& os, bool is_hex = false);
+
+/**
+ * @brief Export ZDD to Knuth format file
+ * @param zdd エクスポートするZDD
+ * @param filename ファイル名
+ * @param is_hex 16進数形式で出力するか
+ */
+void export_zdd_as_knuth(const ZDD& zdd, const std::string& filename, bool is_hex = false);
+
+// ============== SVG Format ==============
+// Export ZDD as SVG visualization
+
+/**
+ * @brief SVGエクスポートオプション
+ */
+struct SvgExportOptions {
+    int width = 800;                          ///< SVG幅
+    int height = 600;                         ///< SVG高さ
+    std::string node_fill_color = "#ffffff";  ///< ノード塗りつぶし色
+    std::string node_stroke_color = "#000000"; ///< ノード輪郭色
+    std::string edge_0_color = "#0000ff";     ///< 0枝の色（点線）
+    std::string edge_1_color = "#000000";     ///< 1枝の色（実線）
+    std::string terminal_0_color = "#ff6666"; ///< 終端0の色
+    std::string terminal_1_color = "#66ff66"; ///< 終端1の色
+    std::string font_family = "sans-serif";   ///< フォントファミリー
+    int font_size = 12;                       ///< フォントサイズ
+    bool show_terminal_labels = true;         ///< 終端ラベルを表示
+    bool show_variable_labels = true;         ///< 変数ラベルを表示
+    int node_radius = 20;                     ///< ノード半径
+    int level_gap = 60;                       ///< レベル間の間隔
+    int horizontal_gap = 40;                  ///< 水平間隔
+};
+
+/**
+ * @brief Export ZDD as SVG
+ * @param zdd エクスポートするZDD
+ * @param os 出力ストリーム
+ * @param options SVGオプション
+ */
+void export_zdd_as_svg(const ZDD& zdd, std::ostream& os,
+                       const SvgExportOptions& options = SvgExportOptions());
+
+/**
+ * @brief Export ZDD as SVG file
+ * @param zdd エクスポートするZDD
+ * @param filename ファイル名
+ * @param options SVGオプション
+ */
+void export_zdd_as_svg(const ZDD& zdd, const std::string& filename,
+                       const SvgExportOptions& options = SvgExportOptions());
+
 } // namespace sbdd2
 
 #endif // SBDD2_IO_HPP

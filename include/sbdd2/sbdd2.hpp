@@ -25,6 +25,9 @@
 #include "gbase.hpp"
 #include "bddct.hpp"
 
+// Helper functions
+#include "zdd_helper.hpp"
+
 // I/O
 #include "io.hpp"
 

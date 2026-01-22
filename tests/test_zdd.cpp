@@ -233,3 +233,187 @@ TEST_F(ZDDTest, ComplexFamily) {
     auto sets = powerset.enumerate();
     EXPECT_EQ(sets.size(), 4u);
 }
+
+// ============== New method tests ==============
+
+TEST_F(ZDDTest, Swap) {
+    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD swapped = s12.swap(1, 2);
+    EXPECT_EQ(swapped, s12);  // Swapping should give same result for this case
+
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    // Swap should work correctly
+    ZDD swapped_u = u.swap(1, 2);
+    EXPECT_EQ(swapped_u.card(), u.card());
+}
+
+TEST_F(ZDDTest, LitLen) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD s12 = s1.product(s2);      // {{1,2}}
+
+    EXPECT_EQ(s1.lit(), 1u);   // 1 literal
+    EXPECT_EQ(s12.lit(), 2u);  // 2 literals
+    EXPECT_EQ(s1.len(), 1u);   // max size 1
+    EXPECT_EQ(s12.len(), 2u);  // max size 2
+
+    ZDD combined = s1 + s2 + s12;  // {{1}, {2}, {1,2}}
+    EXPECT_EQ(combined.lit(), 4u);  // 1 + 1 + 2 = 4
+    EXPECT_EQ(combined.len(), 2u);  // max is 2
+}
+
+TEST_F(ZDDTest, Shift) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD shifted = s1 << 2;
+    EXPECT_EQ(shifted.top(), 3u);  // Variable 1 becomes 3
+
+    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD rshifted = s3 >> 1;
+    EXPECT_EQ(rshifted.top(), 2u);  // Variable 3 becomes 2
+}
+
+TEST_F(ZDDTest, PermitSym) {
+    // Create a power set
+    ZDD base = ZDD::base(mgr);
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s12 = s1.product(s2);
+    ZDD powerset = base + s1 + s2 + s12;  // {{}, {1}, {2}, {1,2}}
+
+    // permit_sym(1): keep only sets with cardinality <= 1
+    ZDD filtered = powerset.permit_sym(1);
+    EXPECT_EQ(filtered.card(), 3.0);  // {{}, {1}, {2}}
+
+    // permit_sym(0): only empty set
+    ZDD empty_only = powerset.permit_sym(0);
+    EXPECT_EQ(empty_only.card(), 1.0);  // {{}}
+}
+
+TEST_F(ZDDTest, Always) {
+    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD s13 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 3));  // {{1,3}}
+    ZDD u = s12 + s13;  // {{1,2}, {1,3}}
+
+    // Variable 1 is in all sets
+    ZDD always_items = u.always();
+    auto items = always_items.one_set();
+    EXPECT_EQ(items.size(), 1u);
+    EXPECT_EQ(items[0], 1u);
+}
+
+TEST_F(ZDDTest, SymChk) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    // Variables 1 and 2 should be symmetric (can be swapped)
+    EXPECT_EQ(u.sym_chk(1, 2), 1);
+
+    // Check non-symmetric case
+    ZDD s12 = s1.product(s2);  // {{1,2}}
+    ZDD asymm = s1 + s12;  // {{1}, {1,2}}
+    EXPECT_EQ(asymm.sym_chk(1, 2), 0);  // Not symmetric
+}
+
+TEST_F(ZDDTest, ImplyChk) {
+    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+
+    // In {{1,2}}, 1 implies 2 and 2 implies 1
+    EXPECT_EQ(s12.imply_chk(1, 2), 1);
+    EXPECT_EQ(s12.imply_chk(2, 1), 1);
+
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD combined = s1 + s12;  // {{1}, {1,2}}
+
+    // 1 does not imply 2 (since {1} exists without 2)
+    EXPECT_EQ(combined.imply_chk(1, 2), 0);
+    // But 2 implies 1 (since every set with 2 also has 1)
+    EXPECT_EQ(combined.imply_chk(2, 1), 1);
+}
+
+TEST_F(ZDDTest, IsPoly) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    EXPECT_EQ(s1.is_poly(), 0);     // Single element
+
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+    EXPECT_EQ(u.is_poly(), 1);  // Multiple elements
+}
+
+TEST_F(ZDDTest, Meet) {
+    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD s23 = ZDD::single(mgr, 2).product(ZDD::single(mgr, 3));  // {{2,3}}
+
+    ZDD meet_result = zdd_meet(s12, s23);
+    // Meet of {1,2} and {2,3} should give {{2}} (intersection of sets)
+    EXPECT_EQ(meet_result.card(), 1.0);
+    auto sets = meet_result.enumerate();
+    ASSERT_EQ(sets.size(), 1u);
+    EXPECT_EQ(sets[0].size(), 1u);
+    EXPECT_EQ(sets[0][0], 2u);
+}
+
+// ============== Helper function tests ==============
+
+TEST_F(ZDDTest, GetPowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // Power set of {1,2,3}
+    EXPECT_EQ(ps.card(), 8.0);       // 2^3 = 8
+
+    std::vector<bddvar> vars = {1, 3};
+    ZDD ps13 = get_power_set(mgr, vars);  // Power set of {1,3}
+    EXPECT_EQ(ps13.card(), 4.0);          // 2^2 = 4
+}
+
+TEST_F(ZDDTest, GetPowerSetWithCard) {
+    ZDD ps_k2 = get_power_set_with_card(mgr, 4, 2);  // Subsets of {1,2,3,4} with size 2
+    EXPECT_EQ(ps_k2.card(), 6.0);  // C(4,2) = 6
+}
+
+TEST_F(ZDDTest, GetSingleSet) {
+    std::vector<bddvar> vars = {1, 2, 3};
+    ZDD single = get_single_set(mgr, vars);
+    EXPECT_EQ(single.card(), 1.0);
+
+    auto sets = single.enumerate();
+    ASSERT_EQ(sets.size(), 1u);
+    EXPECT_EQ(sets[0].size(), 3u);
+}
+
+TEST_F(ZDDTest, MakeDontCare) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    std::vector<bddvar> dc_vars = {2};
+    ZDD dc = make_dont_care(s1, dc_vars);  // {{1}, {1,2}}
+    EXPECT_EQ(dc.card(), 2.0);
+}
+
+TEST_F(ZDDTest, IsMember) {
+    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD combined = s1 + s12;  // {{1}, {1,2}}
+
+    std::vector<bddvar> test1 = {1};
+    std::vector<bddvar> test12 = {1, 2};
+    std::vector<bddvar> test2 = {2};
+
+    EXPECT_TRUE(is_member(combined, test1));
+    EXPECT_TRUE(is_member(combined, test12));
+    EXPECT_FALSE(is_member(combined, test2));
+}
+
+TEST_F(ZDDTest, WeightFilter) {
+    ZDD ps = get_power_set(mgr, 3);  // Power set of {1,2,3}
+    std::vector<long long> weights = {1, 2, 3};  // var 1 has weight 1, etc.
+
+    // Filter by weight <= 3
+    ZDD filtered = weight_le(ps, 3, weights);
+    // Sets with weight <= 3: {}, {1}, {2}, {3}, {1,2}
+    EXPECT_EQ(filtered.card(), 5.0);
+
+    // Filter by weight == 3
+    ZDD eq3 = weight_eq(ps, 3, weights);
+    // Sets with weight == 3: {3}, {1,2}
+    EXPECT_EQ(eq3.card(), 2.0);
+}

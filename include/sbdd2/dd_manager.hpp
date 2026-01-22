@@ -53,6 +53,15 @@ enum class CacheOp : std::uint8_t {
     REMAINDER = 12, ///< 剰余（ZDD）
     UNION = 13,     ///< 和集合（ZDD）
     INTERSECT = 14, ///< 積集合（ZDD）
+    // ZDD advanced operations
+    RESTRICT_ZDD = 15,  ///< ZDD制限演算
+    PERMIT_ZDD = 16,    ///< ZDD許可演算
+    PERMIT_SYM = 17,    ///< ZDD対称許可演算
+    ALWAYS = 18,        ///< ZDD常在演算
+    SYM_CHK = 19,       ///< ZDD対称性チェック
+    SYM_SET = 20,       ///< ZDD対称集合
+    CO_IMPLY_SET = 21,  ///< ZDD逆インプリケーション集合
+    MEET = 22,          ///< ZDD Meet演算
     // Custom
     CUSTOM = 255    ///< カスタム操作
 };

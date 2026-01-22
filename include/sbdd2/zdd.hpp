@@ -280,12 +280,196 @@ public:
     void print() const;
 
     /// @}
+
+    /// @name 変数操作
+    /// @{
+
+    /**
+     * @brief 2つの変数を交換
+     * @param v1 変数1
+     * @param v2 変数2
+     * @return 変数v1とv2を交換したZDD
+     */
+    ZDD swap(bddvar v1, bddvar v2) const;
+
+    /**
+     * @brief 別のZDDで制限
+     * @param g 制限条件のZDD
+     * @return gに含まれる要素を少なくとも1つ含む集合のみを残す
+     */
+    ZDD restrict(const ZDD& g) const;
+
+    /**
+     * @brief 別のZDDで許可
+     * @param g 許可条件のZDD
+     * @return gに含まれる集合の部分集合のみを残す
+     */
+    ZDD permit(const ZDD& g) const;
+
+    /**
+     * @brief 対称許可（濃度制限）
+     * @param n 最大濃度
+     * @return 濃度がn以下の集合のみを残す
+     */
+    ZDD permit_sym(int n) const;
+
+    /**
+     * @brief 必ず現れる要素を取得
+     * @return 全ての集合に共通して含まれる要素の集合
+     */
+    ZDD always() const;
+
+    /// @}
+
+    /// @name カウント・サイズ演算
+    /// @{
+
+    /**
+     * @brief リテラル総数を計算
+     * @return 全集合の要素数の合計
+     */
+    std::uint64_t lit() const;
+
+    /**
+     * @brief 最大集合サイズを計算
+     * @return 集合族に含まれる集合の最大濃度
+     */
+    std::uint64_t len() const;
+
+    /// @}
+
+    /// @name シフト演算子
+    /// @{
+
+    /**
+     * @brief 左シフト（変数番号を増加）
+     * @param s シフト量
+     * @return 全変数番号をsだけ増加させたZDD
+     */
+    ZDD operator<<(int s) const;
+
+    /**
+     * @brief 右シフト（変数番号を減少）
+     * @param s シフト量
+     * @return 全変数番号をsだけ減少させたZDD
+     */
+    ZDD operator>>(int s) const;
+
+    /**
+     * @brief 左シフト代入
+     * @param s シフト量
+     * @return *this
+     */
+    ZDD& operator<<=(int s);
+
+    /**
+     * @brief 右シフト代入
+     * @param s シフト量
+     * @return *this
+     */
+    ZDD& operator>>=(int s);
+
+    /// @}
+
+    /// @name 対称性・インプリケーション
+    /// @{
+
+    /**
+     * @brief 2変数の対称性チェック
+     * @param v1 変数1
+     * @param v2 変数2
+     * @return 対称なら1、非対称なら0、エラーなら-1
+     */
+    int sym_chk(bddvar v1, bddvar v2) const;
+
+    /**
+     * @brief 対称グループを取得
+     * @return 対称な変数グループの集合
+     */
+    ZDD sym_grp() const;
+
+    /**
+     * @brief 対称グループを取得（素朴版）
+     * @return 対称な変数グループの集合
+     */
+    ZDD sym_grp_naive() const;
+
+    /**
+     * @brief 指定変数と対称な変数集合を取得
+     * @param v 変数
+     * @return vと対称な全変数の集合
+     */
+    ZDD sym_set(bddvar v) const;
+
+    /**
+     * @brief インプリケーションチェック
+     * @param v1 変数1
+     * @param v2 変数2
+     * @return v1がv2をインプライするなら1、そうでなければ0
+     */
+    int imply_chk(bddvar v1, bddvar v2) const;
+
+    /**
+     * @brief 逆インプリケーションチェック
+     * @param v1 変数1
+     * @param v2 変数2
+     * @return v1とv2が互いにインプライするなら1
+     */
+    int co_imply_chk(bddvar v1, bddvar v2) const;
+
+    /**
+     * @brief インプリケーション集合を取得
+     * @param v 変数
+     * @return vがインプライする全変数の集合
+     */
+    ZDD imply_set(bddvar v) const;
+
+    /**
+     * @brief 逆インプリケーション集合を取得
+     * @param v 変数
+     * @return vと互いにインプライする全変数の集合
+     */
+    ZDD co_imply_set(bddvar v) const;
+
+    /// @}
+
+    /// @name 多項式演算
+    /// @{
+
+    /**
+     * @brief 多項式判定
+     * @return 複数の集合を含むなら1、単一集合なら0
+     */
+    int is_poly() const;
+
+    /**
+     * @brief 最小因子を取得
+     * @return 集合族の最小因子
+     */
+    ZDD divisor() const;
+
+    /// @}
 };
 
 /// @name 非メンバ演算子
 /// @{
 inline ZDD operator+(ZDD&& a, const ZDD& b) { return a += b; }
 inline ZDD operator*(ZDD&& a, const ZDD& b) { return a *= b; }
+/// @}
+
+/// @name 非メンバ関数
+/// @{
+
+/**
+ * @brief Meet演算
+ * @param f 左オペランド
+ * @param g 右オペランド
+ * @return fとgのMeet（集合族の要素ごとの共通部分の族）
+ *
+ * Knuth TAOCP Vol 4 Ex 203 に基づく実装。
+ */
+ZDD zdd_meet(const ZDD& f, const ZDD& g);
+
 /// @}
 
 } // namespace sbdd2
