@@ -66,6 +66,7 @@ make -j4
 
 - **Commit frequently**: Make small, incremental commits after completing each feature or fix
 - Do not batch multiple unrelated changes into a single commit
+- **Auto-commit after implementation**: When an implementation task is completed and tests pass, automatically commit the changes without waiting for user instruction
 
 ## Design Notes
 
@@ -91,10 +92,8 @@ LC_ALL=C python3 -m sphinx -b html . _build/html
 
 ## Unimplemented Features
 
-See `next_impl.md`. Key items:
-- ZDD symmetry/implication methods
+See `next_impl.md` for potential future items:
 - ZDDV (ZDD vector) class
-- Various I/O formats (Graphillion, Knuth, SVG)
 
 ## References
 
