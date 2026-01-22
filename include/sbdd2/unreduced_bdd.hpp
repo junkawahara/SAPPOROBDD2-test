@@ -34,6 +34,12 @@ public:
     UnreducedBDD& operator=(const UnreducedBDD&) = default;
     UnreducedBDD& operator=(UnreducedBDD&&) noexcept = default;
 
+    // Comparison operators are deleted because UnreducedBDD is not canonical
+    // (the same logical function can have different node structures)
+    bool operator==(const UnreducedBDD&) const = delete;
+    bool operator!=(const UnreducedBDD&) const = delete;
+    bool operator<(const UnreducedBDD&) const = delete;
+
     // Static factory methods
     static UnreducedBDD zero(DDManager& mgr);
     static UnreducedBDD one(DDManager& mgr);

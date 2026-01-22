@@ -37,6 +37,12 @@ public:
     QDD& operator=(const QDD&) = default;
     QDD& operator=(QDD&&) noexcept = default;
 
+    // Comparison operators are deleted because QDD is not canonical
+    // (skip rules are not applied, so the same function can have different structures)
+    bool operator==(const QDD&) const = delete;
+    bool operator!=(const QDD&) const = delete;
+    bool operator<(const QDD&) const = delete;
+
     // Create from UnreducedBDD/UnreducedZDD
     explicit QDD(const UnreducedBDD& ubdd);
     explicit QDD(const UnreducedZDD& uzdd);

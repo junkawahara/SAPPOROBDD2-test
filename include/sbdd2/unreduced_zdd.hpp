@@ -34,6 +34,12 @@ public:
     UnreducedZDD& operator=(const UnreducedZDD&) = default;
     UnreducedZDD& operator=(UnreducedZDD&&) noexcept = default;
 
+    // Comparison operators are deleted because UnreducedZDD is not canonical
+    // (the same logical function can have different node structures)
+    bool operator==(const UnreducedZDD&) const = delete;
+    bool operator!=(const UnreducedZDD&) const = delete;
+    bool operator<(const UnreducedZDD&) const = delete;
+
     // Static factory methods
     static UnreducedZDD empty(DDManager& mgr);
     static UnreducedZDD base(DDManager& mgr);
