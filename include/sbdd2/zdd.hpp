@@ -681,6 +681,63 @@ public:
 
     /// @}
 
+    /// @name 重み付き最適化
+    /// @{
+
+    /**
+     * @brief 最大重みを持つ集合を取得
+     * @param weights 各変数の重み（weights[v] = 変数vの重み）
+     * @param result_set 最大重みの集合を格納
+     * @return 最大重み
+     *
+     * 集合の重みは、その集合に含まれる変数の重みの総和です。
+     * 空集合の重みは0です。
+     */
+    int64_t max_weight(const std::vector<int64_t>& weights, std::set<bddvar>& result_set) const;
+
+    /**
+     * @brief 最大重みを取得（集合は返さない）
+     * @param weights 各変数の重み
+     * @return 最大重み
+     */
+    int64_t max_weight(const std::vector<int64_t>& weights) const;
+
+    /**
+     * @brief 最小重みを持つ集合を取得
+     * @param weights 各変数の重み
+     * @param result_set 最小重みの集合を格納
+     * @return 最小重み
+     */
+    int64_t min_weight(const std::vector<int64_t>& weights, std::set<bddvar>& result_set) const;
+
+    /**
+     * @brief 最小重みを取得（集合は返さない）
+     * @param weights 各変数の重み
+     * @return 最小重み
+     */
+    int64_t min_weight(const std::vector<int64_t>& weights) const;
+
+    /**
+     * @brief 全集合の重みの総和を計算
+     * @param weights 各変数の重み
+     * @return 全集合の重みの総和
+     *
+     * 各集合の重みはその集合に含まれる変数の重みの総和。
+     * この関数は全集合の重みを合計します。
+     */
+    int64_t sum_weight(const std::vector<int64_t>& weights) const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief 全集合の重みの総和を計算（GMP版）
+     * @param weights 各変数の重み
+     * @return 全集合の重みの総和（文字列形式）
+     */
+    std::string exact_sum_weight(const std::vector<int64_t>& weights) const;
+#endif
+
+    /// @}
+
 private:
     /// @name インデックス構築ヘルパー
     /// @{

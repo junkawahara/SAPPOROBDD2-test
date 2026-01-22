@@ -614,4 +614,255 @@ std::set<bddvar> ZDD::exact_get_set(const std::string& order_str) const {
 }
 #endif
 
+// ============== Weight Optimization Methods ==============
+
+int64_t ZDD::max_weight(const std::vector<int64_t>& weights, std::set<bddvar>& result_set) const {
+    result_set.clear();
+
+    // Handle terminal cases
+    if (is_zero()) {
+        return INT64_MIN;  // No sets available
+    }
+    if (is_one()) {
+        return 0;  // Only empty set, weight = 0
+    }
+
+    ensure_index();
+    if (!index_cache_) {
+        return INT64_MIN;
+    }
+
+    // Dynamic programming: compute max weight for each node bottom-up
+    // sto[arc] = {max_weight, take_1_child}
+    std::unordered_map<Arc, std::pair<int64_t, bool>, ArcHash, ArcEqual> sto;
+    sto[ARC_TERMINAL_0] = {INT64_MIN, false};  // 0-terminal is "impossible"
+    sto[ARC_TERMINAL_1] = {0, false};          // 1-terminal (empty set) has weight 0
+
+    // Process from bottom (high level) to top (low level)
+    int max_level = index_cache_->height;
+    Arc root = arc_;
+    if (root.is_negated()) {
+        root = Arc::node(root.index(), false);
+    }
+    int root_level = get_level(manager_, root);
+
+    for (int lev = max_level; lev >= root_level; --lev) {
+        for (const Arc& node : index_cache_->level_nodes[lev]) {
+            const DDNode& dd_node = manager_->node_at(node.index());
+            bddvar var = dd_node.var();
+            Arc child0 = dd_node.arc0();
+            Arc child1 = dd_node.arc1();
+
+            int64_t weight0 = sto[child0].first;
+            int64_t weight1 = sto[child1].first;
+            int64_t var_weight = (var < weights.size()) ? weights[var] : 0;
+
+            // For max: compare child0 weight with child1 weight + var_weight
+            if (weight1 == INT64_MIN) {
+                // 1-child is "impossible", must take 0-child
+                sto[node] = {weight0, false};
+            } else if (weight0 == INT64_MIN || weight0 < weight1 + var_weight) {
+                // Taking 1-child (including var) gives higher weight
+                sto[node] = {weight1 + var_weight, true};
+            } else {
+                // Taking 0-child gives higher or equal weight
+                sto[node] = {weight0, false};
+            }
+        }
+    }
+
+    // Trace back to find the optimal set
+    Arc current = root;
+    while (!current.is_constant()) {
+        auto it = sto.find(current);
+        if (it == sto.end()) break;
+
+        const DDNode& dd_node = manager_->node_at(current.index());
+        bddvar var = dd_node.var();
+
+        if (it->second.second) {
+            // Take 1-child
+            result_set.insert(var);
+            current = dd_node.arc1();
+        } else {
+            // Take 0-child
+            current = dd_node.arc0();
+        }
+    }
+
+    return sto[root].first;
+}
+
+int64_t ZDD::max_weight(const std::vector<int64_t>& weights) const {
+    std::set<bddvar> dummy;
+    return max_weight(weights, dummy);
+}
+
+int64_t ZDD::min_weight(const std::vector<int64_t>& weights, std::set<bddvar>& result_set) const {
+    result_set.clear();
+
+    if (is_zero()) {
+        return INT64_MAX;  // No sets available
+    }
+    if (is_one()) {
+        return 0;  // Only empty set, weight = 0
+    }
+
+    ensure_index();
+    if (!index_cache_) {
+        return INT64_MAX;
+    }
+
+    std::unordered_map<Arc, std::pair<int64_t, bool>, ArcHash, ArcEqual> sto;
+    sto[ARC_TERMINAL_0] = {INT64_MAX, false};  // 0-terminal is "impossible"
+    sto[ARC_TERMINAL_1] = {0, false};          // 1-terminal (empty set) has weight 0
+
+    int max_level = index_cache_->height;
+    Arc root = arc_;
+    if (root.is_negated()) {
+        root = Arc::node(root.index(), false);
+    }
+    int root_level = get_level(manager_, root);
+
+    for (int lev = max_level; lev >= root_level; --lev) {
+        for (const Arc& node : index_cache_->level_nodes[lev]) {
+            const DDNode& dd_node = manager_->node_at(node.index());
+            bddvar var = dd_node.var();
+            Arc child0 = dd_node.arc0();
+            Arc child1 = dd_node.arc1();
+
+            int64_t weight0 = sto[child0].first;
+            int64_t weight1 = sto[child1].first;
+            int64_t var_weight = (var < weights.size()) ? weights[var] : 0;
+
+            // For min: compare child0 weight with child1 weight + var_weight
+            if (weight1 == INT64_MAX) {
+                // 1-child is "impossible", must take 0-child
+                sto[node] = {weight0, false};
+            } else if (weight0 == INT64_MAX || weight0 > weight1 + var_weight) {
+                // Taking 1-child (including var) gives lower weight
+                sto[node] = {weight1 + var_weight, true};
+            } else {
+                // Taking 0-child gives lower or equal weight
+                sto[node] = {weight0, false};
+            }
+        }
+    }
+
+    // Trace back to find the optimal set
+    Arc current = root;
+    while (!current.is_constant()) {
+        auto it = sto.find(current);
+        if (it == sto.end()) break;
+
+        const DDNode& dd_node = manager_->node_at(current.index());
+        bddvar var = dd_node.var();
+
+        if (it->second.second) {
+            result_set.insert(var);
+            current = dd_node.arc1();
+        } else {
+            current = dd_node.arc0();
+        }
+    }
+
+    return sto[root].first;
+}
+
+int64_t ZDD::min_weight(const std::vector<int64_t>& weights) const {
+    std::set<bddvar> dummy;
+    return min_weight(weights, dummy);
+}
+
+int64_t ZDD::sum_weight(const std::vector<int64_t>& weights) const {
+    if (is_zero()) {
+        return 0;
+    }
+    if (is_one()) {
+        return 0;  // Empty set has weight 0
+    }
+
+    ensure_index();
+    if (!index_cache_) {
+        return 0;
+    }
+
+    // sto[arc] = sum of weights of all sets in the subtree rooted at arc
+    // sto[f] = sto[child0] + sto[child1] + weight[var] * count(child1)
+    std::unordered_map<Arc, int64_t, ArcHash, ArcEqual> sto;
+    sto[ARC_TERMINAL_0] = 0;
+    sto[ARC_TERMINAL_1] = 0;
+
+    int max_level = index_cache_->height;
+    Arc root = arc_;
+    if (root.is_negated()) {
+        root = Arc::node(root.index(), false);
+    }
+    int root_level = get_level(manager_, root);
+
+    for (int lev = max_level; lev >= root_level; --lev) {
+        for (const Arc& node : index_cache_->level_nodes[lev]) {
+            const DDNode& dd_node = manager_->node_at(node.index());
+            bddvar var = dd_node.var();
+            Arc child0 = dd_node.arc0();
+            Arc child1 = dd_node.arc1();
+
+            int64_t sum0 = sto[child0];
+            int64_t sum1 = sto[child1];
+            int64_t var_weight = (var < weights.size()) ? weights[var] : 0;
+            double count1 = get_arc_count(index_cache_.get(), child1);
+
+            // Sum for this node = sum of child subtrees + weight[var] * count of 1-child sets
+            sto[node] = sum0 + sum1 + var_weight * static_cast<int64_t>(count1);
+        }
+    }
+
+    return sto[root];
+}
+
+#ifdef SBDD2_HAS_GMP
+std::string ZDD::exact_sum_weight(const std::vector<int64_t>& weights) const {
+    if (is_zero()) {
+        return "0";
+    }
+    if (is_one()) {
+        return "0";
+    }
+
+    ensure_exact_index();
+    if (!exact_index_cache_) {
+        return "0";
+    }
+
+    std::unordered_map<Arc, mpz_class, ArcHash, ArcEqual> sto;
+    sto[ARC_TERMINAL_0] = mpz_class(0);
+    sto[ARC_TERMINAL_1] = mpz_class(0);
+
+    int max_level = exact_index_cache_->height;
+    Arc root = arc_;
+    if (root.is_negated()) {
+        root = Arc::node(root.index(), false);
+    }
+    int root_level = get_level(manager_, root);
+
+    for (int lev = max_level; lev >= root_level; --lev) {
+        for (const Arc& node : exact_index_cache_->level_nodes[lev]) {
+            const DDNode& dd_node = manager_->node_at(node.index());
+            bddvar var = dd_node.var();
+            Arc child0 = dd_node.arc0();
+            Arc child1 = dd_node.arc1();
+
+            mpz_class sum0 = sto[child0];
+            mpz_class sum1 = sto[child1];
+            mpz_class var_weight = (var < weights.size()) ? mpz_class(weights[var]) : mpz_class(0);
+            mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+
+            sto[node] = sum0 + sum1 + var_weight * count1;
+        }
+    }
+
+    return sto[root].get_str();
+}
+#endif
+
 } // namespace sbdd2

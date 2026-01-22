@@ -757,3 +757,118 @@ TEST_F(ZDDIndexTest, ExactOrderOfRoundTrip) {
     }
 }
 #endif
+
+// ============== Weight Optimization Tests ==============
+
+TEST_F(ZDDIndexTest, MaxWeightSimple) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::vector<int64_t> weights = {0, 10, 20};  // weight[1]=10, weight[2]=20
+    std::set<bddvar> result;
+
+    int64_t max_w = u.max_weight(weights, result);
+    EXPECT_EQ(max_w, 20);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(2), 1u);
+}
+
+TEST_F(ZDDIndexTest, MinWeightSimple) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::vector<int64_t> weights = {0, 10, 20};
+    std::set<bddvar> result;
+
+    int64_t min_w = u.min_weight(weights, result);
+    EXPECT_EQ(min_w, 10);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(1), 1u);
+}
+
+TEST_F(ZDDIndexTest, MaxWeightWithEmptySet) {
+    ZDD base = ZDD::base(mgr);  // {{}}
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD u = base + s1;  // {{}, {1}}
+
+    std::vector<int64_t> weights = {0, 10};
+    std::set<bddvar> result;
+
+    int64_t max_w = u.max_weight(weights, result);
+    EXPECT_EQ(max_w, 10);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(1), 1u);
+
+    int64_t min_w = u.min_weight(weights, result);
+    EXPECT_EQ(min_w, 0);
+    EXPECT_EQ(result.size(), 0u);  // Empty set
+}
+
+TEST_F(ZDDIndexTest, MaxWeightPowerSet) {
+    ZDD ps = get_power_set(mgr, 3);  // Power set of {1,2,3}
+
+    std::vector<int64_t> weights = {0, 1, 2, 3};  // weight[i]=i
+    std::set<bddvar> result;
+
+    // Max weight should be {1,2,3} with weight 1+2+3=6
+    int64_t max_w = ps.max_weight(weights, result);
+    EXPECT_EQ(max_w, 6);
+    EXPECT_EQ(result.size(), 3u);
+    EXPECT_EQ(result.count(1), 1u);
+    EXPECT_EQ(result.count(2), 1u);
+    EXPECT_EQ(result.count(3), 1u);
+
+    // Min weight should be {} with weight 0
+    int64_t min_w = ps.min_weight(weights, result);
+    EXPECT_EQ(min_w, 0);
+    EXPECT_EQ(result.size(), 0u);
+}
+
+TEST_F(ZDDIndexTest, SumWeight) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::vector<int64_t> weights = {0, 10, 20};
+    // Sum = weight({1}) + weight({2}) = 10 + 20 = 30
+    EXPECT_EQ(u.sum_weight(weights), 30);
+}
+
+TEST_F(ZDDIndexTest, SumWeightPowerSet) {
+    ZDD ps = get_power_set(mgr, 2);  // {{}, {1}, {2}, {1,2}}
+
+    std::vector<int64_t> weights = {0, 1, 2};
+    // Sum = 0 + 1 + 2 + (1+2) = 6
+    EXPECT_EQ(ps.sum_weight(weights), 6);
+}
+
+TEST_F(ZDDIndexTest, NegativeWeights) {
+    ZDD ps = get_power_set(mgr, 2);  // {{}, {1}, {2}, {1,2}}
+
+    std::vector<int64_t> weights = {0, -5, 10};
+    std::set<bddvar> result;
+
+    // Max: {2} with weight 10
+    int64_t max_w = ps.max_weight(weights, result);
+    EXPECT_EQ(max_w, 10);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(2), 1u);
+
+    // Min: {1} with weight -5
+    int64_t min_w = ps.min_weight(weights, result);
+    EXPECT_EQ(min_w, -5);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(1), 1u);
+}
+
+#ifdef SBDD2_HAS_GMP
+TEST_F(ZDDIndexTest, ExactSumWeight) {
+    ZDD ps = get_power_set(mgr, 3);
+
+    std::vector<int64_t> weights = {0, 1, 2, 3};
+    // Compare with regular sum_weight
+    EXPECT_EQ(ps.exact_sum_weight(weights), std::to_string(ps.sum_weight(weights)));
+}
+#endif
