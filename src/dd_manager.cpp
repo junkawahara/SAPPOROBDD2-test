@@ -49,6 +49,7 @@ DDManager::DDManager(DDManager&& other) noexcept
     , table_size_(other.table_size_)
     , node_count_(other.node_count_)
     , alive_count_(other.alive_count_)
+    , unlinked_nodes_(std::move(other.unlinked_nodes_))
     , avail_(std::move(other.avail_))
     , cache_(std::move(other.cache_))
     , cache_size_(other.cache_size_)
@@ -72,6 +73,7 @@ DDManager& DDManager::operator=(DDManager&& other) noexcept {
         table_size_ = other.table_size_;
         node_count_ = other.node_count_;
         alive_count_ = other.alive_count_;
+        unlinked_nodes_ = std::move(other.unlinked_nodes_);
         avail_ = std::move(other.avail_);
         cache_ = std::move(other.cache_);
         cache_size_ = other.cache_size_;
@@ -276,6 +278,105 @@ Arc DDManager::get_or_create_node_zdd(bddvar var, Arc arc0, Arc arc1, bool reduc
 
     idx = insert_node(var, arc0, arc1, reduced);
     return Arc::node(idx, false);
+}
+
+// Placeholder node creation for top-down construction (TdZdd support)
+bddindex DDManager::create_placeholder_zdd(bddvar var) {
+    // Create a placeholder node in unlinked_nodes_
+    // Children are set to terminal 0 initially (will be set later)
+    DDNode node(ARC_TERMINAL_0, ARC_TERMINAL_0, var, false, 0);
+    unlinked_nodes_.push_back(node);
+    return static_cast<bddindex>(unlinked_nodes_.size() - 1);
+}
+
+bddindex DDManager::create_placeholder_bdd(bddvar var) {
+    // Same as ZDD version
+    DDNode node(ARC_TERMINAL_0, ARC_TERMINAL_0, var, false, 0);
+    unlinked_nodes_.push_back(node);
+    return static_cast<bddindex>(unlinked_nodes_.size() - 1);
+}
+
+Arc DDManager::finalize_node_zdd(bddindex placeholder_idx, Arc arc0, Arc arc1, bool reduced) {
+    if (placeholder_idx >= unlinked_nodes_.size()) {
+        throw DDArgumentException("Invalid placeholder index");
+    }
+
+    DDNode& placeholder = unlinked_nodes_[placeholder_idx];
+    bddvar var = placeholder.var();
+
+    // ZDD reduction rule: if 1-arc points to terminal 0, return 0-arc
+    if (!reduced && arc1 == ARC_TERMINAL_0) {
+        return arc0;
+    }
+
+    // Now register to hash table with the actual children
+    std::lock_guard<std::mutex> lock(table_mutex_);
+
+    if (load_factor() > gc_threshold_) {
+        gc();
+        if (load_factor() > gc_threshold_) {
+            resize_table();
+        }
+    }
+
+    // Check if this node already exists
+    bddindex idx = find_node(var, arc0, arc1);
+    if (idx != BDDINDEX_MAX) {
+        nodes_[idx].inc_refcount();
+        if (nodes_[idx].refcount() == 1) {
+            ++alive_count_;
+        }
+        return Arc::node(idx, false);
+    }
+
+    // Insert new node
+    idx = insert_node(var, arc0, arc1, reduced);
+    return Arc::node(idx, false);
+}
+
+Arc DDManager::finalize_node_bdd(bddindex placeholder_idx, Arc arc0, Arc arc1, bool reduced) {
+    if (placeholder_idx >= unlinked_nodes_.size()) {
+        throw DDArgumentException("Invalid placeholder index");
+    }
+
+    DDNode& placeholder = unlinked_nodes_[placeholder_idx];
+    bddvar var = placeholder.var();
+
+    // BDD reduction rule: if both arcs point to same location, return that arc
+    if (!reduced && arc0.data == arc1.data) {
+        return arc0;
+    }
+
+    // Normalize: ensure 1-arc is not negated
+    bool result_negated = false;
+    if (arc1.is_negated()) {
+        arc0 = arc0.negated();
+        arc1 = arc1.negated();
+        result_negated = true;
+    }
+
+    std::lock_guard<std::mutex> lock(table_mutex_);
+
+    if (load_factor() > gc_threshold_) {
+        gc();
+        if (load_factor() > gc_threshold_) {
+            resize_table();
+        }
+    }
+
+    bddindex idx = find_node(var, arc0, arc1);
+    if (idx != BDDINDEX_MAX) {
+        nodes_[idx].inc_refcount();
+        if (nodes_[idx].refcount() == 1) {
+            ++alive_count_;
+        }
+        Arc result = Arc::node(idx, false);
+        return result_negated ? result.negated() : result;
+    }
+
+    idx = insert_node(var, arc0, arc1, reduced);
+    Arc result = Arc::node(idx, false);
+    return result_negated ? result.negated() : result;
 }
 
 // Reference counting

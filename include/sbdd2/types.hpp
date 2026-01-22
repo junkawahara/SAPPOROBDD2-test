@@ -133,6 +133,62 @@ struct Arc {
     bool operator==(const Arc& other) const { return data == other.data; }
     bool operator!=(const Arc& other) const { return data != other.data; }
     /// @}
+
+    /// @name プレースホルダ Arc（TdZdd 移植用）
+    /// @{
+
+    /**
+     * @brief プレースホルダ Arc を作成
+     *
+     * top-down DD 構築時に、子ノードがまだ作成されていない場合に使用。
+     * 後から resolve_placeholder() で実際の Arc に解決する。
+     *
+     * ビットレイアウト:
+     * - bit 0: 0 (negation なし)
+     * - bit 1: 0 (非 terminal)
+     * - bit 2: 1 (プレースホルダフラグ)
+     * - bits 3-22: level (20 bits)
+     * - bits 23-63: col (41 bits)
+     *
+     * @param level ノードの level (1 以上)
+     * @param col そのレベル内での列番号
+     * @return プレースホルダ Arc
+     */
+    static Arc placeholder(int level, std::uint64_t col) {
+        // bit 2 = 1 (placeholder flag)
+        // bits 3-22 = level (20 bits)
+        // bits 23-63 = col (41 bits)
+        return Arc(0x4ULL | (static_cast<std::uint64_t>(level) << 3) | (col << 23));
+    }
+
+    /**
+     * @brief プレースホルダ Arc かどうか判定
+     * @return プレースホルダなら true
+     */
+    bool is_placeholder() const {
+        // bit 0 = 0, bit 1 = 0, bit 2 = 1
+        return (data & 0x7ULL) == 0x4ULL;
+    }
+
+    /**
+     * @brief プレースホルダの level を取得
+     * @pre is_placeholder() == true
+     * @return level (1 以上)
+     */
+    int placeholder_level() const {
+        return static_cast<int>((data >> 3) & 0xFFFFFULL);  // 20 bits
+    }
+
+    /**
+     * @brief プレースホルダの col を取得
+     * @pre is_placeholder() == true
+     * @return col (0 以上)
+     */
+    std::uint64_t placeholder_col() const {
+        return data >> 23;  // 41 bits
+    }
+
+    /// @}
 };
 
 /// 終端0を指すアーク定数

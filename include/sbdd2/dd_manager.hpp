@@ -305,6 +305,61 @@ public:
 
     /// @}
 
+    /// @name プレースホルダノード作成（TdZdd 移植用）
+    /// @{
+
+    /**
+     * @brief プレースホルダ ZDD ノードを作成（子は後から設定）
+     *
+     * top-down DD 構築時に使用。子ノードが未確定の状態でノードを作成し、
+     * 後から finalize_node_zdd() で子を設定する。
+     *
+     * @param var 変数番号
+     * @return 未登録ノードへのインデックス（unlinked_nodes_ 内）
+     */
+    bddindex create_placeholder_zdd(bddvar var);
+
+    /**
+     * @brief プレースホルダ BDD ノードを作成（子は後から設定）
+     * @param var 変数番号
+     * @return 未登録ノードへのインデックス（unlinked_nodes_ 内）
+     */
+    bddindex create_placeholder_bdd(bddvar var);
+
+    /**
+     * @brief プレースホルダノードに子を設定し、ハッシュテーブルに登録
+     *
+     * @param placeholder_idx create_placeholder_zdd で返されたインデックス
+     * @param arc0 0枝アーク（実際の Arc または terminal）
+     * @param arc1 1枝アーク（実際の Arc または terminal）
+     * @param reduced 既約フラグ
+     * @return ノードへのアーク（共有された場合は既存ノードの Arc）
+     */
+    Arc finalize_node_zdd(bddindex placeholder_idx, Arc arc0, Arc arc1, bool reduced = false);
+
+    /**
+     * @brief プレースホルダ BDD ノードに子を設定し、ハッシュテーブルに登録
+     * @param placeholder_idx create_placeholder_bdd で返されたインデックス
+     * @param arc0 0枝アーク
+     * @param arc1 1枝アーク
+     * @param reduced 既約フラグ
+     * @return ノードへのアーク
+     */
+    Arc finalize_node_bdd(bddindex placeholder_idx, Arc arc0, Arc arc1, bool reduced = false);
+
+    /**
+     * @brief 未登録ノードの数を取得
+     * @return unlinked_nodes_ のサイズ
+     */
+    std::size_t unlinked_node_count() const { return unlinked_nodes_.size(); }
+
+    /**
+     * @brief 未登録ノードをクリア
+     */
+    void clear_unlinked_nodes() { unlinked_nodes_.clear(); }
+
+    /// @}
+
     /// @name 参照カウント管理
     /// @{
 
@@ -435,6 +490,9 @@ private:
     std::size_t table_size_;
     std::size_t node_count_;      // Total nodes in table (including tombstones)
     std::size_t alive_count_;     // Nodes with refcount > 0
+
+    // Unlinked nodes for top-down construction (TdZdd support)
+    std::vector<DDNode> unlinked_nodes_;
 
     // Avail list (indices of available slots)
     std::vector<bddindex> avail_;
