@@ -13,6 +13,7 @@
 #include "dd_base.hpp"
 #include "zdd_index.hpp"
 #include <string>
+#include <set>
 #include <mutex>
 #include <memory>
 
@@ -631,6 +632,51 @@ public:
      * インデックスが未構築の場合は自動的に構築します。
      */
     std::string indexed_exact_count() const;
+#endif
+
+    /// @}
+
+    /// @name 辞書順アクセス
+    /// @{
+
+    /**
+     * @brief 集合から辞書順番号を取得
+     * @param s 検索する集合
+     * @return sの辞書順番号（0始まり）、集合が存在しない場合は-1
+     *
+     * 辞書順は、ZDDの構造に基づいて定義されます：
+     * - まず1枝側（その要素を含む集合）が先
+     * - 次に0枝側（その要素を含まない集合）
+     */
+    int64_t order_of(const std::set<bddvar>& s) const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief 集合から辞書順番号を取得（GMP版）
+     * @param s 検索する集合
+     * @return sの辞書順番号（0始まり）の文字列表現、存在しない場合は"-1"
+     */
+    std::string exact_order_of(const std::set<bddvar>& s) const;
+#endif
+
+    /**
+     * @brief 辞書順番号から集合を取得
+     * @param order 辞書順番号（0始まり）
+     * @return 指定された番号の集合
+     *
+     * @pre 0 <= order < indexed_count()
+     */
+    std::set<bddvar> get_set(int64_t order) const;
+
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief 辞書順番号から集合を取得（GMP版）
+     * @param order 辞書順番号（0始まり）の文字列表現
+     * @return 指定された番号の集合
+     *
+     * @pre 0 <= order < indexed_exact_count()
+     */
+    std::set<bddvar> exact_get_set(const std::string& order) const;
 #endif
 
     /// @}

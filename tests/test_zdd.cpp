@@ -668,3 +668,92 @@ TEST_F(ZDDIndexTest, ExactCountEmpty) {
     EXPECT_EQ(base.indexed_exact_count(), "1");
 }
 #endif
+
+// ============== Dictionary Order Tests ==============
+
+TEST_F(ZDDIndexTest, OrderOfEmptySet) {
+    ZDD base = ZDD::base(mgr);  // {{}}
+    std::set<bddvar> empty_set;
+    EXPECT_EQ(base.order_of(empty_set), 0);
+
+    std::set<bddvar> non_empty = {1};
+    EXPECT_EQ(base.order_of(non_empty), -1);
+}
+
+TEST_F(ZDDIndexTest, OrderOfSingleElement) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    std::set<bddvar> set1 = {1};
+    std::set<bddvar> empty_set;
+
+    EXPECT_EQ(s1.order_of(set1), 0);
+    EXPECT_EQ(s1.order_of(empty_set), -1);  // Empty set not in {{1}}
+}
+
+TEST_F(ZDDIndexTest, OrderOfMultipleSets) {
+    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;  // {{1}, {2}}
+
+    std::set<bddvar> set1 = {1};
+    std::set<bddvar> set2 = {2};
+
+    // Both should have valid order numbers
+    int64_t order1 = u.order_of(set1);
+    int64_t order2 = u.order_of(set2);
+
+    EXPECT_GE(order1, 0);
+    EXPECT_GE(order2, 0);
+    EXPECT_NE(order1, order2);  // Different sets should have different orders
+}
+
+TEST_F(ZDDIndexTest, GetSetBasic) {
+    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    std::set<bddvar> result = s1.get_set(0);
+    EXPECT_EQ(result.size(), 1u);
+    EXPECT_EQ(result.count(1), 1u);
+}
+
+TEST_F(ZDDIndexTest, GetSetRoundTrip) {
+    ZDD ps = get_power_set(mgr, 3);  // Power set of {1,2,3}
+
+    // For each order, get_set and order_of should be inverses
+    double count = ps.indexed_count();
+    for (int64_t i = 0; i < static_cast<int64_t>(count); ++i) {
+        std::set<bddvar> s = ps.get_set(i);
+        int64_t order = ps.order_of(s);
+        EXPECT_EQ(order, i) << "Failed for order " << i;
+    }
+}
+
+TEST_F(ZDDIndexTest, OrderOfAllPowerSetElements) {
+    ZDD ps = get_power_set(mgr, 3);  // 8 sets
+
+    // All orders should be unique and in range [0, 7]
+    std::set<int64_t> orders;
+    auto sets = ps.enumerate();
+    for (const auto& vec : sets) {
+        std::set<bddvar> s(vec.begin(), vec.end());
+        int64_t order = ps.order_of(s);
+        EXPECT_GE(order, 0);
+        EXPECT_LT(order, 8);
+        orders.insert(order);
+    }
+    EXPECT_EQ(orders.size(), 8u);  // All unique
+}
+
+#ifdef SBDD2_HAS_GMP
+TEST_F(ZDDIndexTest, ExactOrderOfRoundTrip) {
+    ZDD ps = get_power_set(mgr, 3);
+
+    // Get all sets via enumerate
+    auto sets = ps.enumerate();
+    for (const auto& vec : sets) {
+        std::set<bddvar> s(vec.begin(), vec.end());
+        std::string order_str = ps.exact_order_of(s);
+        EXPECT_NE(order_str, "-1");
+
+        std::set<bddvar> s2 = ps.exact_get_set(order_str);
+        EXPECT_EQ(s, s2);
+    }
+}
+#endif

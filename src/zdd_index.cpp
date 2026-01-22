@@ -379,4 +379,239 @@ std::string ZDD::indexed_exact_count() const {
 }
 #endif
 
+// ============== Dictionary Order Methods ==============
+
+// Helper: Check if empty set is a member of the family rooted at arc
+static bool is_empty_member(DDManager* mgr, Arc arc) {
+    // Empty set is a member if we can reach 1-terminal by taking only 0-children
+    while (!arc.is_constant()) {
+        const DDNode& node = mgr->node_at(arc.index());
+        arc = node.arc0();  // Follow 0-child
+    }
+    return arc == ARC_TERMINAL_1;
+}
+
+// Helper: Get count stored for an arc
+static double get_arc_count(const ZDDIndexData* cache, Arc arc) {
+    if (arc.is_constant()) {
+        return (arc == ARC_TERMINAL_1) ? 1.0 : 0.0;
+    }
+    auto it = cache->count_cache.find(arc);
+    if (it != cache->count_cache.end()) {
+        return it->second;
+    }
+    return 0.0;
+}
+
+int64_t ZDD::order_of(const std::set<bddvar>& s) const {
+    // Handle terminal cases
+    if (is_zero()) {
+        return -1;  // Empty family contains no sets
+    }
+    if (is_one()) {
+        // Base family {∅} contains only empty set
+        return s.empty() ? 0 : -1;
+    }
+
+    ensure_index();
+    if (!index_cache_) {
+        return -1;
+    }
+
+    // Make a mutable copy of the input set
+    std::set<bddvar> remaining = s;
+
+    // Start from root
+    Arc current = arc_;
+    if (current.is_negated()) {
+        current = Arc::node(current.index(), false);
+    }
+
+    int64_t order = 0;
+
+    while (!current.is_constant()) {
+        const DDNode& node = manager_->node_at(current.index());
+        bddvar var = node.var();
+
+        Arc child0 = node.arc0();
+        Arc child1 = node.arc1();
+
+        if (remaining.count(var) > 0) {
+            // Variable is in the set, follow 1-child
+            remaining.erase(var);
+            current = child1;
+        } else {
+            // Variable is not in the set, follow 0-child
+            // But first, add the count of the 1-child subtree to order
+            double count1 = get_arc_count(index_cache_.get(), child1);
+            order += static_cast<int64_t>(count1);
+            current = child0;
+        }
+    }
+
+    // At terminal: check if we found the set
+    if (current == ARC_TERMINAL_1 && remaining.empty()) {
+        return order;
+    }
+
+    return -1;  // Set not found
+}
+
+std::set<bddvar> ZDD::get_set(int64_t order) const {
+    std::set<bddvar> result;
+
+    // Handle terminal cases
+    if (is_zero()) {
+        return result;  // Empty family, return empty set
+    }
+    if (is_one()) {
+        // Base family {∅}, order 0 gives empty set
+        return result;
+    }
+
+    if (order < 0) {
+        return result;
+    }
+
+    ensure_index();
+    if (!index_cache_) {
+        return result;
+    }
+
+    // Start from root
+    Arc current = arc_;
+    if (current.is_negated()) {
+        current = Arc::node(current.index(), false);
+    }
+
+    while (!current.is_constant()) {
+        const DDNode& node = manager_->node_at(current.index());
+        bddvar var = node.var();
+
+        Arc child1 = node.arc1();
+        Arc child0 = node.arc0();
+
+        double count1 = get_arc_count(index_cache_.get(), child1);
+        int64_t count1_int = static_cast<int64_t>(count1);
+
+        if (order < count1_int) {
+            // The set is in the 1-child subtree (contains this variable)
+            result.insert(var);
+            current = child1;
+        } else {
+            // The set is in the 0-child subtree (doesn't contain this variable)
+            order -= count1_int;
+            current = child0;
+        }
+    }
+
+    return result;
+}
+
+#ifdef SBDD2_HAS_GMP
+// Helper: Get GMP count stored for an arc
+static mpz_class get_arc_count_gmp(const ZDDExactIndexData* cache, Arc arc) {
+    if (arc.is_constant()) {
+        return (arc == ARC_TERMINAL_1) ? mpz_class(1) : mpz_class(0);
+    }
+    auto it = cache->count_cache.find(arc);
+    if (it != cache->count_cache.end()) {
+        return it->second;
+    }
+    return mpz_class(0);
+}
+
+std::string ZDD::exact_order_of(const std::set<bddvar>& s) const {
+    // Handle terminal cases
+    if (is_zero()) {
+        return "-1";
+    }
+    if (is_one()) {
+        return s.empty() ? "0" : "-1";
+    }
+
+    ensure_exact_index();
+    if (!exact_index_cache_) {
+        return "-1";
+    }
+
+    std::set<bddvar> remaining = s;
+    Arc current = arc_;
+    if (current.is_negated()) {
+        current = Arc::node(current.index(), false);
+    }
+
+    mpz_class order(0);
+
+    while (!current.is_constant()) {
+        const DDNode& node = manager_->node_at(current.index());
+        bddvar var = node.var();
+
+        Arc child0 = node.arc0();
+        Arc child1 = node.arc1();
+
+        if (remaining.count(var) > 0) {
+            remaining.erase(var);
+            current = child1;
+        } else {
+            mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+            order += count1;
+            current = child0;
+        }
+    }
+
+    if (current == ARC_TERMINAL_1 && remaining.empty()) {
+        return order.get_str();
+    }
+
+    return "-1";
+}
+
+std::set<bddvar> ZDD::exact_get_set(const std::string& order_str) const {
+    std::set<bddvar> result;
+
+    if (is_zero()) {
+        return result;
+    }
+    if (is_one()) {
+        return result;
+    }
+
+    mpz_class order(order_str);
+    if (order < 0) {
+        return result;
+    }
+
+    ensure_exact_index();
+    if (!exact_index_cache_) {
+        return result;
+    }
+
+    Arc current = arc_;
+    if (current.is_negated()) {
+        current = Arc::node(current.index(), false);
+    }
+
+    while (!current.is_constant()) {
+        const DDNode& node = manager_->node_at(current.index());
+        bddvar var = node.var();
+
+        Arc child1 = node.arc1();
+        Arc child0 = node.arc0();
+
+        mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+
+        if (order < count1) {
+            result.insert(var);
+            current = child1;
+        } else {
+            order -= count1;
+            current = child0;
+        }
+    }
+
+    return result;
+}
+#endif
+
 } // namespace sbdd2
