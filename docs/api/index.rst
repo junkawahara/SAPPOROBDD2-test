@@ -9,6 +9,7 @@ API リファレンス
    core
    bdd
    zdd
+   zdd_helper
    extended
    utility
 
@@ -43,6 +44,18 @@ API リファレンス
 
 * :cpp:class:`sbdd2::GBase` - グラフベース（パス/サイクル列挙）
 * :cpp:class:`sbdd2::BDDCT` - コストテーブル
+
+ヘルパー関数
+~~~~~~~~~~~~
+
+* ``get_power_set`` - べき集合生成
+* ``get_power_set_with_card`` - 指定濃度のべき集合
+* ``get_single_set`` - 単一集合生成
+* ``make_dont_care`` - ドントケア変換
+* ``is_member`` - メンバーシップ判定
+* ``weight_*`` - 重みフィルタ関数群
+* ``get_uniformly_random_zdd`` - ランダムZDD生成
+* ``get_random_zdd_with_card`` - 指定濃度のランダムZDD
 
 型定義
 ------

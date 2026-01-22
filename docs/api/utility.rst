@@ -36,6 +36,37 @@ DOT形式
 .. doxygenfunction:: sbdd2::to_dot(const BDD&, const std::string&)
 .. doxygenfunction:: sbdd2::to_dot(const ZDD&, const std::string&)
 
+Graphillion形式
+~~~~~~~~~~~~~~~
+
+Graphillionライブラリと互換性のある形式でZDDを入出力します。
+
+.. doxygenfunction:: sbdd2::import_zdd_as_graphillion(DDManager&, std::istream&, int)
+.. doxygenfunction:: sbdd2::import_zdd_as_graphillion(DDManager&, const std::string&, int)
+.. doxygenfunction:: sbdd2::export_zdd_as_graphillion(const ZDD&, std::ostream&, int)
+.. doxygenfunction:: sbdd2::export_zdd_as_graphillion(const ZDD&, const std::string&, int)
+
+Knuth形式
+~~~~~~~~~
+
+Knuthの形式でZDDを入出力します。
+
+.. doxygenfunction:: sbdd2::import_zdd_as_knuth(DDManager&, std::istream&, bool, int)
+.. doxygenfunction:: sbdd2::import_zdd_as_knuth(DDManager&, const std::string&, bool, int)
+.. doxygenfunction:: sbdd2::export_zdd_as_knuth(const ZDD&, std::ostream&, bool)
+.. doxygenfunction:: sbdd2::export_zdd_as_knuth(const ZDD&, const std::string&, bool)
+
+SVG形式
+~~~~~~~
+
+ZDDをSVG画像として出力します。
+
+.. doxygenstruct:: sbdd2::SvgExportOptions
+   :members:
+
+.. doxygenfunction:: sbdd2::export_zdd_as_svg(const ZDD&, std::ostream&, const SvgExportOptions&)
+.. doxygenfunction:: sbdd2::export_zdd_as_svg(const ZDD&, const std::string&, const SvgExportOptions&)
+
 検証
 ~~~~
 
@@ -118,3 +149,66 @@ BDD/ZDDのエクスポート
    std::string dot = to_dot(f, "my_bdd");
    std::ofstream dot_file("bdd.dot");
    dot_file << dot;
+
+Graphillion形式
+~~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 5; ++i) mgr.new_var();
+
+   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);
+
+   // Graphillion形式でエクスポート
+   std::ofstream ofs("family.graphillion");
+   export_zdd_as_graphillion(family, ofs);
+
+   // Graphillion形式からインポート
+   std::ifstream ifs("family.graphillion");
+   ZDD imported = import_zdd_as_graphillion(mgr, ifs);
+
+Knuth形式
+~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 5; ++i) mgr.new_var();
+
+   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);
+
+   // Knuth形式でエクスポート
+   std::ofstream ofs("family.knuth");
+   export_zdd_as_knuth(family, ofs);
+
+   // 16進数形式
+   export_zdd_as_knuth(family, "family_hex.knuth", true);
+
+   // Knuth形式からインポート
+   ZDD imported = import_zdd_as_knuth(mgr, "family.knuth");
+
+SVG出力
+~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 3; ++i) mgr.new_var();
+
+   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2) +
+                ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));
+
+   // デフォルトオプションでSVG出力
+   export_zdd_as_svg(family, "family.svg");
+
+   // カスタムオプション
+   SvgExportOptions opts;
+   opts.width = 1024;
+   opts.height = 768;
+   opts.node_fill_color = "#f0f0f0";
+   opts.edge_0_color = "#ff0000";  // 0枝を赤に
+   opts.edge_1_color = "#0000ff";  // 1枝を青に
+   opts.font_size = 14;
+
+   export_zdd_as_svg(family, "family_custom.svg", opts);
