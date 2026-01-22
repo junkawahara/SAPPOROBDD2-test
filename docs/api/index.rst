@@ -12,6 +12,7 @@ API リファレンス
    zdd_helper
    extended
    utility
+   tdzdd
 
 クラス一覧
 ----------
@@ -56,6 +57,21 @@ API リファレンス
 * ``weight_*`` - 重みフィルタ関数群
 * ``get_uniformly_random_zdd`` - ランダムZDD生成
 * ``get_random_zdd_with_card`` - 指定濃度のランダムZDD
+
+TdZdd互換インターフェース
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``DdSpec`` - Specベースクラス（状態あり）
+* ``StatelessDdSpec`` - Specベースクラス（状態なし）
+* ``build_zdd`` / ``build_bdd`` - シングルスレッドビルダー
+* ``build_zdd_mp`` / ``build_bdd_mp`` - 並列ビルダー（OpenMP）
+* ``zddUnion`` / ``zddIntersection`` - Spec演算子
+
+厳密カウント（GMP）
+~~~~~~~~~~~~~~~~~~~
+
+* ``BDD::exact_count()`` - 任意精度のBDD充足割当数
+* ``ZDD::exact_count()`` - 任意精度のZDD集合数
 
 型定義
 ------

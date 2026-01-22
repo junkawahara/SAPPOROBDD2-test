@@ -183,3 +183,32 @@ Meet演算
 
    // Meet: 要素ごとの積集合
    ZDD meet_result = zdd_meet(a, b);  // {{2}} ({1,2} ∩ {2,3} = {2})
+
+厳密カウント（GMP）
+~~~~~~~~~~~~~~~~~~~
+
+大規模な集合族では、集合数がdouble精度（2^53まで）を超える場合があります。
+GMPがインストールされている場合、``exact_count()`` で任意精度の厳密なカウントが可能です。
+
+.. code-block:: cpp
+
+   // 20変数のべき集合 = 2^20 = 1048576 個の集合
+   ZDD ps = get_power_set(mgr, 20);
+
+   // 通常のカウント（double）
+   double approx = ps.card();  // 1048576.0
+
+   // 厳密カウント（GMP使用、文字列で返す）
+   #ifdef SBDD2_HAS_GMP
+   std::string exact = ps.exact_count();  // "1048576"
+
+   // より大規模な例（60変数）
+   // 2^60 = 1152921504606846976 はdouble精度を超える
+   ZDD large_ps = get_power_set(mgr, 60);
+   std::string large_count = large_ps.exact_count();
+   // "1152921504606846976"
+   #endif
+
+.. note::
+   ``exact_count()`` は ``SBDD2_HAS_GMP`` が定義されている場合のみ使用可能です。
+   GMPがインストールされていれば、CMakeが自動検出します。
