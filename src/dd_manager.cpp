@@ -34,6 +34,10 @@ DDManager::DDManager(std::size_t node_table_size, std::size_t cache_size)
     // Allocate tables
     nodes_.resize(table_size_);
     cache_.resize(cache_size_);
+
+    // Initialize level mappings (index 0 is unused, 1-indexed)
+    var_to_level_.push_back(0);  // placeholder for index 0
+    level_to_var_.push_back(0);  // placeholder for index 0
 }
 
 // Destructor
@@ -49,6 +53,8 @@ DDManager::DDManager(DDManager&& other) noexcept
     , cache_(std::move(other.cache_))
     , cache_size_(other.cache_size_)
     , var_count_(other.var_count_.load())
+    , var_to_level_(std::move(other.var_to_level_))
+    , level_to_var_(std::move(other.level_to_var_))
     , gc_threshold_(other.gc_threshold_)
     , gc_min_nodes_(other.gc_min_nodes_)
 {
@@ -70,6 +76,8 @@ DDManager& DDManager::operator=(DDManager&& other) noexcept {
         cache_ = std::move(other.cache_);
         cache_size_ = other.cache_size_;
         var_count_ = other.var_count_.load();
+        var_to_level_ = std::move(other.var_to_level_);
+        level_to_var_ = std::move(other.level_to_var_);
         gc_threshold_ = other.gc_threshold_;
         gc_min_nodes_ = other.gc_min_nodes_;
 
@@ -84,7 +92,50 @@ DDManager& DDManager::operator=(DDManager&& other) noexcept {
 
 // Variable management
 bddvar DDManager::new_var() {
-    return ++var_count_;
+    bddvar v = ++var_count_;
+    // Default: variable v has level v
+    var_to_level_.push_back(v);
+    level_to_var_.push_back(v);
+    return v;
+}
+
+bddvar DDManager::new_var_of_lev(bddvar lev) {
+    if (lev == 0 || lev > var_count_ + 1) {
+        throw std::out_of_range("new_var_of_lev: Invalid level");
+    }
+
+    bddvar v = ++var_count_;
+
+    // Expand arrays
+    var_to_level_.push_back(0);
+    level_to_var_.push_back(0);
+
+    // Shift levels: for i from var_count down to lev+1, move level i-1 to level i
+    for (bddvar i = var_count_; i > lev; --i) {
+        bddvar var_at_i_minus_1 = level_to_var_[i - 1];
+        level_to_var_[i] = var_at_i_minus_1;
+        var_to_level_[var_at_i_minus_1] = i;
+    }
+
+    // Set the new variable at the specified level
+    level_to_var_[lev] = v;
+    var_to_level_[v] = lev;
+
+    return v;
+}
+
+bddvar DDManager::lev_of_var(bddvar v) const {
+    if (v == 0 || v > var_count_) {
+        throw std::out_of_range("lev_of_var: Invalid variable number");
+    }
+    return var_to_level_[v];
+}
+
+bddvar DDManager::var_of_lev(bddvar lev) const {
+    if (lev == 0 || lev > var_count_) {
+        throw std::out_of_range("var_of_lev: Invalid level");
+    }
+    return level_to_var_[lev];
 }
 
 // Hash function for node lookup

@@ -167,6 +167,74 @@ public:
      */
     bddvar var_count() const { return var_count_; }
 
+    /**
+     * @brief 指定レベルに新しい変数を作成
+     * @param lev 挿入するレベル（1以上、var_count+1以下）
+     * @return 作成された変数番号
+     * @throw std::out_of_range レベルが範囲外の場合
+     *
+     * 指定レベルに新しい変数を挿入し、それ以降のレベルをシフトします。
+     */
+    bddvar new_var_of_lev(bddvar lev);
+
+    /**
+     * @brief 変数番号からレベルを取得
+     * @param v 変数番号
+     * @return 変数のレベル
+     * @throw std::out_of_range 変数番号が範囲外の場合
+     */
+    bddvar lev_of_var(bddvar v) const;
+
+    /**
+     * @brief レベルから変数番号を取得
+     * @param lev レベル
+     * @return そのレベルの変数番号
+     * @throw std::out_of_range レベルが範囲外の場合
+     */
+    bddvar var_of_lev(bddvar lev) const;
+
+    /**
+     * @brief 最上位レベルを取得
+     * @return 現在使用中の最大レベル（var_countと同じ）
+     */
+    bddvar top_lev() const { return var_count_; }
+
+    /**
+     * @brief 2つの変数のレベルを比較して上位（根に近い）変数を返す
+     * @param v1 変数番号1
+     * @param v2 変数番号2
+     * @return レベルが小さい方（根に近い方）の変数番号
+     */
+    bddvar var_of_min_lev(bddvar v1, bddvar v2) const {
+        if (v1 == 0 || v1 > var_count_) return v2;
+        if (v2 == 0 || v2 > var_count_) return v1;
+        return (var_to_level_[v1] <= var_to_level_[v2]) ? v1 : v2;
+    }
+
+    /**
+     * @brief 変数v1がv2より上位（根に近い）かどうか
+     * @param v1 変数番号1
+     * @param v2 変数番号2
+     * @return v1のレベルがv2のレベル以下ならtrue
+     */
+    bool var_is_above_or_equal(bddvar v1, bddvar v2) const {
+        if (v1 == 0 || v1 > var_count_) return false;
+        if (v2 == 0 || v2 > var_count_) return true;
+        return var_to_level_[v1] <= var_to_level_[v2];
+    }
+
+    /**
+     * @brief 変数v1がv2より下位（葉に近い）かどうか
+     * @param v1 変数番号1
+     * @param v2 変数番号2
+     * @return v1のレベルがv2のレベルより大きいならtrue
+     */
+    bool var_is_below(bddvar v1, bddvar v2) const {
+        if (v1 == 0 || v1 > var_count_) return true;
+        if (v2 == 0 || v2 > var_count_) return false;
+        return var_to_level_[v1] > var_to_level_[v2];
+    }
+
     /// @}
 
     /// @name BDD/ZDD作成
@@ -377,6 +445,12 @@ private:
 
     // Variable count
     std::atomic<bddvar> var_count_;
+
+    // Variable-Level mapping
+    // var_to_level_[v] = level of variable v (1-indexed)
+    // level_to_var_[lev] = variable at level lev (1-indexed)
+    std::vector<bddvar> var_to_level_;
+    std::vector<bddvar> level_to_var_;
 
     // Thread safety
     mutable std::mutex table_mutex_;

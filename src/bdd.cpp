@@ -138,7 +138,7 @@ static Arc bdd_apply(DDManager* mgr, CacheOp op, Arc f, Arc g) {
     // Recursive case
     bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
     bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-    bddvar top_var = std::min(f_var, g_var);
+    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
@@ -257,7 +257,7 @@ static Arc bdd_ite(DDManager* mgr, Arc f, Arc t, Arc e) {
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar t_var = t.is_constant() ? BDDVAR_MAX : mgr->node_at(t.index()).var();
     bddvar e_var = e.is_constant() ? BDDVAR_MAX : mgr->node_at(e.index()).var();
-    bddvar top_var = std::min(f_var, std::min(t_var, e_var));
+    bddvar top_var = mgr->var_of_min_lev(f_var, mgr->var_of_min_lev(t_var, e_var));
 
     // Split
     Arc f0, f1, t0, t1, e0, e1;
@@ -309,7 +309,9 @@ static Arc bdd_restrict(DDManager* mgr, Arc f, bddvar v, bool value) {
     if (f.is_constant()) return f;
 
     bddvar f_var = mgr->node_at(f.index()).var();
-    if (f_var > v) return f;
+    bddvar v_lev = mgr->lev_of_var(v);
+    bddvar f_lev = mgr->lev_of_var(f_var);
+    if (f_lev > v_lev) return f;  // f_var is below v in DD
 
     const DDNode& node = mgr->node_at(f.index());
     Arc f0 = node.arc0();
@@ -323,7 +325,7 @@ static Arc bdd_restrict(DDManager* mgr, Arc f, bddvar v, bool value) {
         return value ? f1 : f0;
     }
 
-    // f_var < v
+    // f_lev < v_lev (f_var is above v in DD)
     Arc r0 = bdd_restrict(mgr, f0, v, value);
     Arc r1 = bdd_restrict(mgr, f1, v, value);
     return mgr->get_or_create_node_bdd(f_var, r0, r1, true);
@@ -370,7 +372,9 @@ static Arc bdd_compose(DDManager* mgr, Arc f, bddvar v, Arc g) {
     }
 
     bddvar f_var = mgr->node_at(f.index()).var();
-    if (f_var > v) return f;
+    bddvar v_lev = mgr->lev_of_var(v);
+    bddvar f_lev = mgr->lev_of_var(f_var);
+    if (f_lev > v_lev) return f;  // f_var is below v in DD
 
     const DDNode& node = mgr->node_at(f.index());
     Arc f0 = node.arc0();

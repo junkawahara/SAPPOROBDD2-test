@@ -160,13 +160,14 @@ static Arc zdd_union(DDManager* mgr, Arc f, Arc g) {
         return result;
     }
 
-    bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
-    bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-    bddvar top_var = std::min(f_var, g_var);
+    bddvar f_var = f.is_constant() ? 0 : mgr->node_at(f.index()).var();
+    bddvar g_var = g.is_constant() ? 0 : mgr->node_at(g.index()).var();
+    // Use level comparison to find top variable
+    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
-    if (f.is_constant() || f_var > top_var) {
+    if (f.is_constant() || mgr->var_is_below(f_var, top_var)) {
         f0 = f;
         f1 = ARC_TERMINAL_0;
     } else {
@@ -175,7 +176,7 @@ static Arc zdd_union(DDManager* mgr, Arc f, Arc g) {
         f1 = node.arc1();
     }
 
-    if (g.is_constant() || g_var > top_var) {
+    if (g.is_constant() || mgr->var_is_below(g_var, top_var)) {
         g0 = g;
         g1 = ARC_TERMINAL_0;
     } else {
@@ -211,12 +212,14 @@ static Arc zdd_intersect(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar g_var = mgr->node_at(g.index()).var();
+    bddvar f_lev = mgr->lev_of_var(f_var);
+    bddvar g_lev = mgr->lev_of_var(g_var);
 
-    if (f_var < g_var) {
-        // f has smaller variable, g doesn't have it
+    if (f_lev < g_lev) {
+        // f has higher variable (closer to root), g doesn't have it
         const DDNode& node = mgr->node_at(f.index());
         result = zdd_intersect(mgr, node.arc0(), g);
-    } else if (f_var > g_var) {
+    } else if (f_lev > g_lev) {
         const DDNode& node = mgr->node_at(g.index());
         result = zdd_intersect(mgr, f, node.arc0());
     } else {
@@ -244,8 +247,10 @@ static Arc zdd_diff(DDManager* mgr, Arc f, Arc g) {
         return result;
     }
 
-    bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
-    bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
+    bddvar f_var = f.is_constant() ? 0 : mgr->node_at(f.index()).var();
+    bddvar g_var = g.is_constant() ? 0 : mgr->node_at(g.index()).var();
+    bddvar f_lev = f.is_constant() ? BDDVAR_MAX : mgr->lev_of_var(f_var);
+    bddvar g_lev = g.is_constant() ? BDDVAR_MAX : mgr->lev_of_var(g_var);
 
     if (f.is_constant()) {
         // f is terminal 1 (base)
@@ -264,11 +269,11 @@ static Arc zdd_diff(DDManager* mgr, Arc f, Arc g) {
         } else {
             result = f;  // f - empty = f
         }
-    } else if (f_var < g_var) {
+    } else if (f_lev < g_lev) {
         const DDNode& f_node = mgr->node_at(f.index());
         Arc r0 = zdd_diff(mgr, f_node.arc0(), g);
         result = mgr->get_or_create_node_zdd(f_var, r0, f_node.arc1(), true);
-    } else if (f_var > g_var) {
+    } else if (f_lev > g_lev) {
         const DDNode& g_node = mgr->node_at(g.index());
         result = zdd_diff(mgr, f, g_node.arc0());
     } else {
@@ -325,6 +330,7 @@ static Arc zdd_quotient(DDManager* mgr, Arc f, Arc g) {
     }
 
     bddvar g_var = mgr->node_at(g.index()).var();
+    bddvar g_lev = mgr->lev_of_var(g_var);
     const DDNode& g_node = mgr->node_at(g.index());
 
     // Recursive quotient
@@ -333,12 +339,13 @@ static Arc zdd_quotient(DDManager* mgr, Arc f, Arc g) {
 
     if (!f.is_constant()) {
         bddvar f_var = mgr->node_at(f.index()).var();
+        bddvar f_lev = mgr->lev_of_var(f_var);
         if (f_var == g_var) {
             const DDNode& f_node = mgr->node_at(f.index());
             f_offset = f_node.arc0();
             f_onset = f_node.arc1();
-        } else if (f_var < g_var) {
-            // f has variable that g doesn't have
+        } else if (f_lev < g_lev) {
+            // f has variable that g doesn't have (f_var is above g_var)
             result = ARC_TERMINAL_0;
             mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
             return result;
@@ -410,7 +417,9 @@ static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar g_var = mgr->node_at(g.index()).var();
-    bddvar top_var = std::min(f_var, g_var);
+    bddvar f_lev = mgr->lev_of_var(f_var);
+    bddvar g_lev = mgr->lev_of_var(g_var);
+    bddvar top_var = (f_lev <= g_lev) ? f_var : g_var;
 
     Arc f0, f1, g0, g1;
 
@@ -588,11 +597,11 @@ static Arc zdd_restrict_impl(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
     bddvar g_var = mgr->node_at(g.index()).var();
-    bddvar top_var = std::min(f_var, g_var);
+    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
-    if (f.is_constant() || f_var > top_var) {
+    if (f.is_constant() || mgr->var_is_below(f_var, top_var)) {
         f0 = f;
         f1 = ARC_TERMINAL_0;
     } else {
@@ -601,7 +610,7 @@ static Arc zdd_restrict_impl(DDManager* mgr, Arc f, Arc g) {
         f1 = node.arc1();
     }
 
-    if (g_var > top_var) {
+    if (mgr->var_is_below(g_var, top_var)) {
         g0 = g;
         g1 = ARC_TERMINAL_0;
     } else {
@@ -644,11 +653,11 @@ static Arc zdd_permit_impl(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-    bddvar top_var = std::min(f_var, g_var);
+    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
-    if (f_var > top_var) {
+    if (mgr->var_is_below(f_var, top_var)) {
         f0 = f;
         f1 = ARC_TERMINAL_0;
     } else {
@@ -657,7 +666,7 @@ static Arc zdd_permit_impl(DDManager* mgr, Arc f, Arc g) {
         f1 = node.arc1();
     }
 
-    if (g.is_constant() || g_var > top_var) {
+    if (g.is_constant() || mgr->var_is_below(g_var, top_var)) {
         g0 = g;
         g1 = ARC_TERMINAL_0;
     } else {
@@ -1053,11 +1062,11 @@ static Arc zdd_sym_set_impl(DDManager* mgr, Arc f0, Arc f1) {
 
     bddvar f0_var = f0.is_constant() ? BDDVAR_MAX : mgr->node_at(f0.index()).var();
     bddvar f1_var = f1.is_constant() ? BDDVAR_MAX : mgr->node_at(f1.index()).var();
-    bddvar top = std::min(f0_var, f1_var);
+    bddvar top = mgr->var_of_min_lev(f0_var, f1_var);
 
     Arc f00, f01, f10, f11;
 
-    if (f0.is_constant() || f0_var > top) {
+    if (f0.is_constant() || mgr->var_is_below(f0_var, top)) {
         f00 = f0;
         f01 = ARC_TERMINAL_0;
     } else {
@@ -1066,7 +1075,7 @@ static Arc zdd_sym_set_impl(DDManager* mgr, Arc f0, Arc f1) {
         f01 = node.arc1();
     }
 
-    if (f1.is_constant() || f1_var > top) {
+    if (f1.is_constant() || mgr->var_is_below(f1_var, top)) {
         f10 = f1;
         f11 = ARC_TERMINAL_0;
     } else {
@@ -1157,11 +1166,11 @@ static Arc zdd_co_imply_set_impl(DDManager* mgr, Arc f0, Arc f1) {
 
     bddvar f0_var = f0.is_constant() ? BDDVAR_MAX : mgr->node_at(f0.index()).var();
     bddvar f1_var = f1.is_constant() ? BDDVAR_MAX : mgr->node_at(f1.index()).var();
-    bddvar top = std::min(f0_var, f1_var);
+    bddvar top = mgr->var_of_min_lev(f0_var, f1_var);
 
     Arc f00, f01, f10, f11;
 
-    if (f0.is_constant() || f0_var > top) {
+    if (f0.is_constant() || mgr->var_is_below(f0_var, top)) {
         f00 = f0;
         f01 = ARC_TERMINAL_0;
     } else {
@@ -1170,7 +1179,7 @@ static Arc zdd_co_imply_set_impl(DDManager* mgr, Arc f0, Arc f1) {
         f01 = node.arc1();
     }
 
-    if (f1.is_constant() || f1_var > top) {
+    if (f1.is_constant() || mgr->var_is_below(f1_var, top)) {
         f10 = f1;
         f11 = ARC_TERMINAL_0;
     } else {
@@ -1274,17 +1283,19 @@ static Arc zdd_meet_impl(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar g_var = mgr->node_at(g.index()).var();
+    bddvar f_lev = mgr->lev_of_var(f_var);
+    bddvar g_lev = mgr->lev_of_var(g_var);
 
     const DDNode& f_node = mgr->node_at(f.index());
     Arc f0 = f_node.arc0();
     Arc f1 = f_node.arc1();
 
-    if (f_var < g_var) {
-        // f has variable that g doesn't have
+    if (f_lev < g_lev) {
+        // f has variable that g doesn't have (f is higher in DD)
         Arc r0 = zdd_meet_impl(mgr, f0, g);
         Arc r1 = zdd_meet_impl(mgr, f1, g);
         result = zdd_union(mgr, r0, r1);
-    } else if (f_var > g_var) {
+    } else if (f_lev > g_lev) {
         const DDNode& g_node = mgr->node_at(g.index());
         Arc g0 = g_node.arc0();
         Arc g1 = g_node.arc1();

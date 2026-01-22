@@ -417,3 +417,62 @@ TEST_F(ZDDTest, WeightFilter) {
     // Sets with weight == 3: {3}, {1,2}
     EXPECT_EQ(eq3.card(), 2.0);
 }
+
+// Test ZDD operations with variable level management
+TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
+    DDManager mgr;
+
+    // Create variables with default ordering
+    bddvar v1 = mgr.new_var();  // var=1, lev=1
+    bddvar v2 = mgr.new_var();  // var=2, lev=2
+
+    // Insert variable at level 1, shifting v1 to lev=2, v2 to lev=3
+    bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1
+
+    // Now ordering is: v3 (lev=1) > v1 (lev=2) > v2 (lev=3)
+    // Create ZDDs using these variables
+    ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
+    ZDD s2 = ZDD::single(mgr, v2);  // {{v2}}
+    ZDD s3 = ZDD::single(mgr, v3);  // {{v3}}
+
+    // Test union - should respect level ordering
+    ZDD u13 = s1 + s3;  // {{v1}, {v3}}
+    EXPECT_EQ(u13.card(), 2.0);
+    EXPECT_EQ(u13.top(), v3);  // v3 should be at top (lowest level = highest in DD)
+
+    ZDD u12 = s1 + s2;  // {{v1}, {v2}}
+    EXPECT_EQ(u12.card(), 2.0);
+    EXPECT_EQ(u12.top(), v1);  // v1 has lower level than v2
+
+    // Test intersection
+    ZDD p13 = s1 * s3;  // Empty (different singleton sets)
+    EXPECT_TRUE(p13.is_zero());
+
+    // Test product
+    ZDD prod = s3.product(s1);  // {{v3, v1}}
+    EXPECT_EQ(prod.card(), 1.0);
+    EXPECT_EQ(prod.top(), v3);  // v3 should be at top
+}
+
+TEST(ZDDLevelTest, MeetWithDifferentLevels) {
+    DDManager mgr;
+
+    bddvar v1 = mgr.new_var();  // var=1, lev=1
+    bddvar v2 = mgr.new_var();  // var=2, lev=2
+
+    // Insert v3 at level 1
+    bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1; now v1 at lev=2, v2 at lev=3
+
+    // Create sets
+    ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
+    ZDD s3 = ZDD::single(mgr, v3);  // {{v3}}
+    ZDD base = ZDD::base(mgr);      // {{}}
+
+    // Meet of {{v1}} and {{v3}} should be {{}}
+    ZDD m = zdd_meet(s1, s3);
+    EXPECT_EQ(m, base);
+
+    // Meet of {{v1}} and {{v1}} should be {{v1}}
+    ZDD m2 = zdd_meet(s1, s1);
+    EXPECT_EQ(m2, s1);
+}

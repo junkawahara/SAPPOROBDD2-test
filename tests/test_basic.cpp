@@ -119,3 +119,76 @@ TEST(DDManagerTest, Terminals) {
     EXPECT_TRUE(zero.is_terminal());
     EXPECT_TRUE(one.is_terminal());
 }
+
+// Test variable level management
+TEST(DDManagerTest, VariableLevelBasic) {
+    DDManager mgr;
+
+    bddvar v1 = mgr.new_var();
+    bddvar v2 = mgr.new_var();
+    bddvar v3 = mgr.new_var();
+
+    // Default: variable number == level
+    EXPECT_EQ(mgr.lev_of_var(v1), 1u);
+    EXPECT_EQ(mgr.lev_of_var(v2), 2u);
+    EXPECT_EQ(mgr.lev_of_var(v3), 3u);
+
+    EXPECT_EQ(mgr.var_of_lev(1), v1);
+    EXPECT_EQ(mgr.var_of_lev(2), v2);
+    EXPECT_EQ(mgr.var_of_lev(3), v3);
+
+    EXPECT_EQ(mgr.top_lev(), 3u);
+}
+
+TEST(DDManagerTest, NewVarOfLev) {
+    DDManager mgr;
+
+    bddvar v1 = mgr.new_var();  // var=1, lev=1
+    bddvar v2 = mgr.new_var();  // var=2, lev=2
+
+    // Insert new variable at level 1, shifting existing ones down
+    bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1
+
+    EXPECT_EQ(mgr.lev_of_var(v3), 1u);  // v3 is now at level 1
+    EXPECT_EQ(mgr.lev_of_var(v1), 2u);  // v1 shifted to level 2
+    EXPECT_EQ(mgr.lev_of_var(v2), 3u);  // v2 shifted to level 3
+
+    EXPECT_EQ(mgr.var_of_lev(1), v3);
+    EXPECT_EQ(mgr.var_of_lev(2), v1);
+    EXPECT_EQ(mgr.var_of_lev(3), v2);
+
+    EXPECT_EQ(mgr.top_lev(), 3u);
+}
+
+TEST(DDManagerTest, VarOfMinLev) {
+    DDManager mgr;
+
+    bddvar v1 = mgr.new_var();  // var=1, lev=1
+    bddvar v2 = mgr.new_var();  // var=2, lev=2
+    mgr.new_var_of_lev(1);      // var=3, lev=1 (now v1 is at lev=2, v2 at lev=3)
+
+    // var=3 is at level 1, var=1 is at level 2
+    bddvar min_lev_var = mgr.var_of_min_lev(1, 3);
+    EXPECT_EQ(min_lev_var, 3u);  // v3 has smaller level
+
+    // Test with BDDVAR_MAX
+    bddvar result = mgr.var_of_min_lev(1, BDDVAR_MAX);
+    EXPECT_EQ(result, 1u);
+}
+
+TEST(DDManagerTest, VarIsAboveBelow) {
+    DDManager mgr;
+
+    bddvar v1 = mgr.new_var();  // var=1, lev=1
+    bddvar v2 = mgr.new_var();  // var=2, lev=2
+    bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1 (shifts v1 to lev=2, v2 to lev=3)
+
+    // v3 is at lev=1, v1 is at lev=2, v2 is at lev=3
+    EXPECT_TRUE(mgr.var_is_above_or_equal(v3, v1));   // lev(v3)=1 <= lev(v1)=2
+    EXPECT_TRUE(mgr.var_is_above_or_equal(v3, v2));   // lev(v3)=1 <= lev(v2)=3
+    EXPECT_TRUE(mgr.var_is_above_or_equal(v1, v1));   // equal
+    EXPECT_FALSE(mgr.var_is_above_or_equal(v2, v1));  // lev(v2)=3 > lev(v1)=2
+
+    EXPECT_TRUE(mgr.var_is_below(v2, v1));   // lev(v2)=3 > lev(v1)=2
+    EXPECT_FALSE(mgr.var_is_below(v3, v1));  // lev(v3)=1 < lev(v1)=2
+}
