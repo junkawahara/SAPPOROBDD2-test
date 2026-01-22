@@ -121,6 +121,13 @@ if(SBDD2_BUILD_SHARED)
     endif()
 endif()
 
+# Alias target for easier linking
+if(SBDD2_BUILD_STATIC)
+    add_library(sbdd2 ALIAS sbdd2_static)
+elseif(SBDD2_BUILD_SHARED)
+    add_library(sbdd2 ALIAS sbdd2_shared)
+endif()
+
 # Tests
 if(SBDD2_BUILD_TESTS)
     enable_testing()
@@ -134,6 +141,12 @@ if(SBDD2_BUILD_TESTS)
     else()
         message(STATUS "Google Test not found, tests will not be built")
     endif()
+endif()
+
+# Examples
+option(SBDD2_BUILD_EXAMPLES "Build examples" ON)
+if(SBDD2_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()
 
 # Install
