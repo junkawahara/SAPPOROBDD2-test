@@ -476,3 +476,56 @@ TEST(ZDDLevelTest, MeetWithDifferentLevels) {
     ZDD m2 = zdd_meet(s1, s1);
     EXPECT_EQ(m2, s1);
 }
+
+#ifdef SBDD2_HAS_GMP
+TEST(ZDDExactCountTest, MatchesCard) {
+    DDManager mgr;
+
+    // Empty set
+    ZDD empty = ZDD::empty(mgr);
+    EXPECT_EQ(empty.exact_count(), "0");
+
+    // Base (single empty set)
+    ZDD base = ZDD::base(mgr);
+    EXPECT_EQ(base.exact_count(), "1");
+
+    // Single element
+    mgr.new_var();
+    ZDD s1 = ZDD::single(mgr, 1);
+    EXPECT_EQ(s1.exact_count(), std::to_string(static_cast<long long>(s1.card())));
+
+    // Union of two singletons
+    mgr.new_var();
+    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD u = s1 + s2;
+    EXPECT_EQ(u.exact_count(), std::to_string(static_cast<long long>(u.card())));
+
+    // Power set of 3 variables = 2^3 = 8 sets
+    mgr.new_var();
+    ZDD ps = get_power_set(mgr, 3);
+    EXPECT_EQ(ps.exact_count(), std::to_string(static_cast<long long>(ps.card())));
+}
+
+TEST(ZDDExactCountTest, LargeCount) {
+    DDManager mgr;
+
+    // Create power set with moderate number of variables
+    // Power set of 20 variables = 2^20 = 1048576 sets
+    for (int i = 0; i < 20; ++i) {
+        mgr.new_var();
+    }
+
+    ZDD ps = get_power_set(mgr, 20);
+
+    // Verify exact_count returns valid result
+    std::string exact_str = ps.exact_count();
+    EXPECT_FALSE(exact_str.empty());
+    EXPECT_NE(exact_str, "0");
+
+    // Verify consistency (deterministic)
+    EXPECT_EQ(ps.exact_count(), exact_str);
+
+    // 2^20 = 1048576
+    EXPECT_EQ(exact_str, "1048576");
+}
+#endif

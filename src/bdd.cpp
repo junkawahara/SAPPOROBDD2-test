@@ -12,6 +12,10 @@
 #include <functional>
 #include <algorithm>
 
+#ifdef SBDD2_HAS_GMP
+#include <gmpxx.h>
+#endif
+
 namespace sbdd2 {
 
 // Static factory methods
@@ -502,6 +506,63 @@ double BDD::count(bddvar max_var) const {
 
     return count_rec(arc_, 1);
 }
+
+#ifdef SBDD2_HAS_GMP
+std::string BDD::exact_count() const {
+    if (!manager_) return "0";
+    if (arc_.is_constant()) {
+        // Match card() behavior: return 1 for true, 0 for false
+        bool val = arc_.terminal_value() != arc_.is_negated();
+        return val ? "1" : "0";
+    }
+
+    // Count with memoization
+    std::unordered_map<std::uint64_t, mpz_class> memo;
+    bddvar total_vars = manager_->var_count();
+
+    std::function<mpz_class(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> mpz_class {
+        if (a.is_constant()) {
+            bool val = a.terminal_value() != a.is_negated();
+            if (!val) return 0;
+            // 2^(total_vars - level + 1)
+            mpz_class result;
+            mpz_ui_pow_ui(result.get_mpz_t(), 2, total_vars - level + 1);
+            return result;
+        }
+
+        std::uint64_t key = a.data;
+        auto it = memo.find(key);
+        if (it != memo.end()) return it->second;
+
+        const DDNode& node = manager_->node_at(a.index());
+        bddvar v = node.var();
+
+        Arc a0 = node.arc0();
+        Arc a1 = node.arc1();
+        if (a.is_negated()) {
+            a0 = a0.negated();
+            a1 = a1.negated();
+        }
+
+        mpz_class c0 = count_rec(a0, v + 1);
+        mpz_class c1 = count_rec(a1, v + 1);
+
+        // Account for skipped variables: 2^(v - level) * (c0 + c1) / 2
+        // = 2^(v - level - 1) * (c0 + c1)
+        mpz_class result = c0 + c1;
+        if (v > level) {
+            result <<= (v - level - 1);
+        } else {
+            result >>= 1;
+        }
+
+        memo[key] = result;
+        return result;
+    };
+
+    return count_rec(arc_, 1).get_str();
+}
+#endif
 
 // Satisfying assignment
 std::vector<int> BDD::one_sat() const {

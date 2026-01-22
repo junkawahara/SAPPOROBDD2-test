@@ -286,6 +286,19 @@ public:
      */
     double count(bddvar max_var) const;
 
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief 充足割当数を計算（厳密計算）
+     * @return 充足割当数を文字列で返す
+     *
+     * GMPを使用して任意精度で計算します。
+     * 2^53を超える大きな値でも正確に計算できます。
+     *
+     * @note この機能はGMPがインストールされている場合のみ利用可能です
+     */
+    std::string exact_count() const;
+#endif
+
     /// @}
 
     /**

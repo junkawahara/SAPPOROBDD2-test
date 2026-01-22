@@ -236,6 +236,19 @@ public:
      */
     double count() const;
 
+#ifdef SBDD2_HAS_GMP
+    /**
+     * @brief 集合族に含まれる集合の数（厳密計算）
+     * @return |F| を文字列で返す
+     *
+     * GMPを使用して任意精度で計算します。
+     * 2^53を超える大きな値でも正確に計算できます。
+     *
+     * @note この機能はGMPがインストールされている場合のみ利用可能です
+     */
+    std::string exact_count() const;
+#endif
+
     /// @}
 
     /// @name 列挙演算

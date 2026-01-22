@@ -10,6 +10,10 @@
 #include <unordered_map>
 #include <functional>
 
+#ifdef SBDD2_HAS_GMP
+#include <gmpxx.h>
+#endif
+
 namespace sbdd2 {
 
 // Forward declarations
@@ -490,6 +494,32 @@ double ZDD::card() const {
 double ZDD::count() const {
     return card();
 }
+
+#ifdef SBDD2_HAS_GMP
+std::string ZDD::exact_count() const {
+    if (!manager_) return "0";
+    if (arc_ == ARC_TERMINAL_0) return "0";
+    if (arc_ == ARC_TERMINAL_1) return "1";
+
+    std::unordered_map<bddindex, mpz_class> memo;
+
+    std::function<mpz_class(Arc)> count_rec = [&](Arc a) -> mpz_class {
+        if (a == ARC_TERMINAL_0) return 0;
+        if (a == ARC_TERMINAL_1) return 1;
+
+        bddindex idx = a.index();
+        auto it = memo.find(idx);
+        if (it != memo.end()) return it->second;
+
+        const DDNode& node = manager_->node_at(idx);
+        mpz_class result = count_rec(node.arc0()) + count_rec(node.arc1());
+        memo[idx] = result;
+        return result;
+    };
+
+    return count_rec(arc_).get_str();
+}
+#endif
 
 // Enumeration
 std::vector<std::vector<bddvar>> ZDD::enumerate() const {
