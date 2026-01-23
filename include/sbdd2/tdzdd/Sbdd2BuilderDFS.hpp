@@ -128,6 +128,7 @@ namespace detail {
  *
  * @param mgr DDManager
  * @param spec The spec
+ * @param rootLevel The root level (used for variable mapping)
  * @param level Current level
  * @param state Current state (will be modified)
  * @param cache DFS cache for memoization
@@ -135,7 +136,7 @@ namespace detail {
  * @return Arc representing the ZDD for this state
  */
 template<typename SPEC>
-Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int level,
+Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int rootLevel, int level,
                        void* state, DFSCache<SPEC>& cache, int datasize) {
     // Terminal cases
     if (level == 0) {
@@ -158,7 +159,7 @@ Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int level,
         spec.get_copy(state0.data(), state);
     }
     int level0 = spec.get_child(state0.data(), level, 0);
-    Arc arc0 = dfs_build_zdd_impl(mgr, spec, level0, state0.data(), cache, datasize);
+    Arc arc0 = dfs_build_zdd_impl(mgr, spec, rootLevel, level0, state0.data(), cache, datasize);
     if (datasize > 0) {
         spec.destruct(state0.data());
     }
@@ -169,7 +170,7 @@ Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int level,
         spec.get_copy(state1.data(), state);
     }
     int level1 = spec.get_child(state1.data(), level, 1);
-    Arc arc1 = dfs_build_zdd_impl(mgr, spec, level1, state1.data(), cache, datasize);
+    Arc arc1 = dfs_build_zdd_impl(mgr, spec, rootLevel, level1, state1.data(), cache, datasize);
     if (datasize > 0) {
         spec.destruct(state1.data());
     }
@@ -180,7 +181,8 @@ Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int level,
         result = arc0;
     } else {
         // Create node
-        bddvar var = mgr.var_of_lev(level);
+        // Map: TdZdd level L → variable (rootLevel - L + 1)
+        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
         result = mgr.get_or_create_node_zdd(var, arc0, arc1, true);
     }
 
@@ -194,7 +196,7 @@ Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int level,
  * Internal DFS build function for BDD.
  */
 template<typename SPEC>
-Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int level,
+Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int rootLevel, int level,
                        void* state, DFSCache<SPEC>& cache, int datasize) {
     // Terminal cases
     if (level == 0) {
@@ -217,7 +219,7 @@ Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int level,
         spec.get_copy(state0.data(), state);
     }
     int level0 = spec.get_child(state0.data(), level, 0);
-    Arc arc0 = dfs_build_bdd_impl(mgr, spec, level0, state0.data(), cache, datasize);
+    Arc arc0 = dfs_build_bdd_impl(mgr, spec, rootLevel, level0, state0.data(), cache, datasize);
     if (datasize > 0) {
         spec.destruct(state0.data());
     }
@@ -228,7 +230,7 @@ Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int level,
         spec.get_copy(state1.data(), state);
     }
     int level1 = spec.get_child(state1.data(), level, 1);
-    Arc arc1 = dfs_build_bdd_impl(mgr, spec, level1, state1.data(), cache, datasize);
+    Arc arc1 = dfs_build_bdd_impl(mgr, spec, rootLevel, level1, state1.data(), cache, datasize);
     if (datasize > 0) {
         spec.destruct(state1.data());
     }
@@ -239,7 +241,8 @@ Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int level,
         result = arc0;
     } else {
         // Create node
-        bddvar var = mgr.var_of_lev(level);
+        // Map: TdZdd level L → variable (rootLevel - L + 1)
+        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
         result = mgr.get_or_create_node_bdd(var, arc0, arc1, true);
     }
 
@@ -285,7 +288,7 @@ ZDD build_zdd_dfs(DDManager& mgr, SPEC& spec) {
 
     // Create cache and build
     DFSCache<SPEC> cache(datasize);
-    Arc result = detail::dfs_build_zdd_impl(mgr, spec, rootLevel,
+    Arc result = detail::dfs_build_zdd_impl(mgr, spec, rootLevel, rootLevel,
                                             rootState.data(), cache, datasize);
 
     // Clean up root state
@@ -327,7 +330,7 @@ BDD build_bdd_dfs(DDManager& mgr, SPEC& spec) {
 
     // Create cache and build
     DFSCache<SPEC> cache(datasize);
-    Arc result = detail::dfs_build_bdd_impl(mgr, spec, rootLevel,
+    Arc result = detail::dfs_build_bdd_impl(mgr, spec, rootLevel, rootLevel,
                                             rootState.data(), cache, datasize);
 
     // Clean up root state

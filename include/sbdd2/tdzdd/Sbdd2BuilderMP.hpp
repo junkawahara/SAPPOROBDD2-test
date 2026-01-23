@@ -86,7 +86,8 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
         nodeArcs[level].resize(numNodes);
 
         // Create placeholder nodes for this level
-        bddvar var = mgr.var_of_lev(level);
+        // Map: TdZdd level L → variable (rootLevel - L + 1)
+        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_zdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
@@ -328,7 +329,8 @@ UnreducedBDD build_unreduced_bdd_mp(DDManager& mgr, SPEC& spec) {
         nodeChildren[level].resize(numNodes);
         nodeArcs[level].resize(numNodes);
 
-        bddvar var = mgr.var_of_lev(level);
+        // Map: TdZdd level L → variable (rootLevel - L + 1)
+        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_bdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
