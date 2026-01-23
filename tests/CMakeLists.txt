@@ -13,6 +13,7 @@ add_executable(sbdd2_tests
     test_zdd.cpp
     test_extended.cpp
     test_tdzdd.cpp
+    test_tdzdd_dfs.cpp
     test_mtbdd.cpp
     test_mtzdd.cpp
     test_mvzdd.cpp
