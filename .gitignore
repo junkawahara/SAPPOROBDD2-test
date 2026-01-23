@@ -52,3 +52,5 @@ sbdd_helper/
 # Design documents (not part of distribution)
 SAPPOROBDD_2.0_design.md
 next_impl.md
+
+vendor/

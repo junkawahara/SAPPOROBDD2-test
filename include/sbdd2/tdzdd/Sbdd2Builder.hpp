@@ -19,6 +19,8 @@
 #include "../bdd.hpp"
 #include "../unreduced_zdd.hpp"
 #include "../unreduced_bdd.hpp"
+#include "../mvzdd.hpp"
+#include "../mvbdd.hpp"
 
 namespace sbdd2 {
 namespace tdzdd {
@@ -386,6 +388,298 @@ template<typename SPEC>
 BDD build_bdd(DDManager& mgr, SPEC& spec) {
     UnreducedBDD unreduced = build_unreduced_bdd(mgr, spec);
     return unreduced.reduce();
+}
+
+/**
+ * Build an MVZDD from a TdZdd-compatible spec with ARITY >= 2.
+ *
+ * This function is intended for specs with ARITY >= 3, but also works for ARITY = 2.
+ * For ARITY = 2, consider using build_zdd instead for better performance.
+ *
+ * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
+ * @param mgr The DDManager to use
+ * @param spec The spec instance
+ * @return MVZDD
+ */
+template<typename SPEC>
+MVZDD build_mvzdd(DDManager& mgr, SPEC& spec) {
+    int const datasize = spec.datasize();
+    int const ARITY = SPEC::ARITY;
+
+    // Get root
+    std::vector<char> rootState(datasize > 0 ? datasize : 1);
+    int rootLevel = spec.get_root(rootState.data());
+
+    // Create MVZDD with k = ARITY
+    MVZDD base_mvzdd = MVZDD::empty(mgr, ARITY);
+
+    if (rootLevel == 0) {
+        return base_mvzdd;  // Empty set
+    }
+    if (rootLevel < 0) {
+        return MVZDD::base(mgr, ARITY);  // Base set
+    }
+
+    // Pre-create MVDD variables for all levels
+    while (static_cast<int>(base_mvzdd.mvdd_var_count()) < rootLevel) {
+        base_mvzdd.new_var();
+    }
+
+    // Terminal MVZDDs
+    MVZDD empty_mvzdd = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
+                               ZDD::empty(mgr));
+    MVZDD base_term = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
+                             ZDD::base(mgr));
+
+    // Data structures
+    std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
+    std::vector<std::vector<std::vector<std::pair<int, std::size_t>>>> childRefs(rootLevel + 1);
+    std::vector<std::vector<MVZDD>> nodeMVZDDs(rootLevel + 1);
+
+    // Phase 1: Top-down state exploration
+    nodeStates[rootLevel].push_back(rootState);
+
+    for (int level = rootLevel; level >= 1; --level) {
+        std::size_t numNodes = nodeStates[level].size();
+        if (numNodes == 0) continue;
+
+        childRefs[level].resize(numNodes);
+
+        // Hash table for next level's state deduplication
+        std::unordered_map<std::size_t, std::vector<std::size_t>> nextLevelHash;
+
+        for (std::size_t col = 0; col < numNodes; ++col) {
+            childRefs[level][col].resize(ARITY);
+
+            for (int b = 0; b < ARITY; ++b) {
+                std::vector<char> childState(datasize > 0 ? datasize : 1);
+                if (datasize > 0) {
+                    spec.get_copy(childState.data(), nodeStates[level][col].data());
+                }
+
+                int childLevel = spec.get_child(childState.data(), level, b);
+
+                if (childLevel <= 0) {
+                    childRefs[level][col][b] = {childLevel, 0};
+                } else {
+                    assert(childLevel < level);
+
+                    std::size_t hashCode = spec.hash_code(childState.data(), childLevel);
+                    bool found = false;
+                    std::size_t childCol = 0;
+
+                    auto it = nextLevelHash.find(hashCode);
+                    if (it != nextLevelHash.end()) {
+                        for (std::size_t existingCol : it->second) {
+                            if (spec.equal_to(childState.data(),
+                                              nodeStates[childLevel][existingCol].data(),
+                                              childLevel)) {
+                                childCol = existingCol;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found) {
+                        childCol = nodeStates[childLevel].size();
+                        nodeStates[childLevel].push_back(childState);
+                        nextLevelHash[hashCode].push_back(childCol);
+                    }
+
+                    childRefs[level][col][b] = {childLevel, childCol};
+                }
+            }
+
+            if (datasize > 0) {
+                spec.destruct(nodeStates[level][col].data());
+            }
+        }
+
+        nodeStates[level].clear();
+        nodeStates[level].shrink_to_fit();
+        spec.destructLevel(level);
+    }
+
+    // Phase 2: Bottom-up MVZDD construction
+    for (int level = 1; level <= rootLevel; ++level) {
+        std::size_t numNodes = childRefs[level].size();
+        nodeMVZDDs[level].resize(numNodes);
+
+        for (std::size_t col = 0; col < numNodes; ++col) {
+            std::vector<MVZDD> children(ARITY);
+
+            for (int b = 0; b < ARITY; ++b) {
+                int childLevel = childRefs[level][col][b].first;
+                std::size_t childCol = childRefs[level][col][b].second;
+
+                if (childLevel == 0) {
+                    children[b] = empty_mvzdd;
+                } else if (childLevel < 0) {
+                    children[b] = base_term;
+                } else {
+                    children[b] = nodeMVZDDs[childLevel][childCol];
+                }
+            }
+
+            // Build MVZDD node using ITE
+            // TdZdd level numbering: rootLevel is the top, 1 is the bottom
+            // MVDD variable numbering: 1 is the first variable created (top)
+            // Map: TdZdd level L → MVDD variable (rootLevel - L + 1)
+            // So level rootLevel → MVDD var 1 (top), level 1 → MVDD var rootLevel (bottom)
+            bddvar mv = static_cast<bddvar>(rootLevel - level + 1);
+            nodeMVZDDs[level][col] = MVZDD::ite(base_mvzdd, mv, children);
+        }
+
+        childRefs[level].clear();
+        childRefs[level].shrink_to_fit();
+    }
+
+    // Return root
+    return nodeMVZDDs[rootLevel][0];
+}
+
+/**
+ * Build an MVBDD from a TdZdd-compatible spec with ARITY >= 2.
+ *
+ * This function is intended for specs with ARITY >= 3, but also works for ARITY = 2.
+ * For ARITY = 2, consider using build_bdd instead for better performance.
+ *
+ * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
+ * @param mgr The DDManager to use
+ * @param spec The spec instance
+ * @return MVBDD
+ */
+template<typename SPEC>
+MVBDD build_mvbdd(DDManager& mgr, SPEC& spec) {
+    int const datasize = spec.datasize();
+    int const ARITY = SPEC::ARITY;
+
+    // Get root
+    std::vector<char> rootState(datasize > 0 ? datasize : 1);
+    int rootLevel = spec.get_root(rootState.data());
+
+    // Create MVBDD with k = ARITY
+    MVBDD base_mvbdd = MVBDD::zero(mgr, ARITY);
+
+    if (rootLevel == 0) {
+        return base_mvbdd;  // Constant 0
+    }
+    if (rootLevel < 0) {
+        return MVBDD::one(mgr, ARITY);  // Constant 1
+    }
+
+    // Pre-create MVDD variables for all levels
+    while (static_cast<int>(base_mvbdd.mvdd_var_count()) < rootLevel) {
+        base_mvbdd.new_var();
+    }
+
+    // Terminal MVBDDs
+    MVBDD zero_mvbdd = MVBDD(base_mvbdd.manager(), base_mvbdd.var_table(),
+                              BDD::zero(mgr));
+    MVBDD one_mvbdd = MVBDD(base_mvbdd.manager(), base_mvbdd.var_table(),
+                             BDD::one(mgr));
+
+    // Data structures
+    std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
+    std::vector<std::vector<std::vector<std::pair<int, std::size_t>>>> childRefs(rootLevel + 1);
+    std::vector<std::vector<MVBDD>> nodeMVBDDs(rootLevel + 1);
+
+    // Phase 1: Top-down state exploration
+    nodeStates[rootLevel].push_back(rootState);
+
+    for (int level = rootLevel; level >= 1; --level) {
+        std::size_t numNodes = nodeStates[level].size();
+        if (numNodes == 0) continue;
+
+        childRefs[level].resize(numNodes);
+
+        std::unordered_map<std::size_t, std::vector<std::size_t>> nextLevelHash;
+
+        for (std::size_t col = 0; col < numNodes; ++col) {
+            childRefs[level][col].resize(ARITY);
+
+            for (int b = 0; b < ARITY; ++b) {
+                std::vector<char> childState(datasize > 0 ? datasize : 1);
+                if (datasize > 0) {
+                    spec.get_copy(childState.data(), nodeStates[level][col].data());
+                }
+
+                int childLevel = spec.get_child(childState.data(), level, b);
+
+                if (childLevel <= 0) {
+                    childRefs[level][col][b] = {childLevel, 0};
+                } else {
+                    assert(childLevel < level);
+
+                    std::size_t hashCode = spec.hash_code(childState.data(), childLevel);
+                    bool found = false;
+                    std::size_t childCol = 0;
+
+                    auto it = nextLevelHash.find(hashCode);
+                    if (it != nextLevelHash.end()) {
+                        for (std::size_t existingCol : it->second) {
+                            if (spec.equal_to(childState.data(),
+                                              nodeStates[childLevel][existingCol].data(),
+                                              childLevel)) {
+                                childCol = existingCol;
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found) {
+                        childCol = nodeStates[childLevel].size();
+                        nodeStates[childLevel].push_back(childState);
+                        nextLevelHash[hashCode].push_back(childCol);
+                    }
+
+                    childRefs[level][col][b] = {childLevel, childCol};
+                }
+            }
+
+            if (datasize > 0) {
+                spec.destruct(nodeStates[level][col].data());
+            }
+        }
+
+        nodeStates[level].clear();
+        nodeStates[level].shrink_to_fit();
+        spec.destructLevel(level);
+    }
+
+    // Phase 2: Bottom-up MVBDD construction
+    for (int level = 1; level <= rootLevel; ++level) {
+        std::size_t numNodes = childRefs[level].size();
+        nodeMVBDDs[level].resize(numNodes);
+
+        for (std::size_t col = 0; col < numNodes; ++col) {
+            std::vector<MVBDD> children(ARITY);
+
+            for (int b = 0; b < ARITY; ++b) {
+                int childLevel = childRefs[level][col][b].first;
+                std::size_t childCol = childRefs[level][col][b].second;
+
+                if (childLevel == 0) {
+                    children[b] = zero_mvbdd;
+                } else if (childLevel < 0) {
+                    children[b] = one_mvbdd;
+                } else {
+                    children[b] = nodeMVBDDs[childLevel][childCol];
+                }
+            }
+
+            // Map: TdZdd level L → MVDD variable (rootLevel - L + 1)
+            bddvar mv = static_cast<bddvar>(rootLevel - level + 1);
+            nodeMVBDDs[level][col] = MVBDD::ite(base_mvbdd, mv, children);
+        }
+
+        childRefs[level].clear();
+        childRefs[level].shrink_to_fit();
+    }
+
+    return nodeMVBDDs[rootLevel][0];
 }
 
 } // namespace tdzdd

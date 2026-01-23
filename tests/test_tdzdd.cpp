@@ -4,6 +4,8 @@
 #include "sbdd2/dd_manager.hpp"
 #include "sbdd2/zdd.hpp"
 #include "sbdd2/bdd.hpp"
+#include "sbdd2/mvzdd.hpp"
+#include "sbdd2/mvbdd.hpp"
 #include "sbdd2/tdzdd/DdSpec.hpp"
 #include "sbdd2/tdzdd/Sbdd2Builder.hpp"
 #include "sbdd2/tdzdd/Sbdd2BuilderMP.hpp"
@@ -253,4 +255,220 @@ TEST_F(TdZddTest, ParallelBddBuild) {
 
     EXPECT_TRUE(result.is_valid());
     EXPECT_TRUE(result.is_one());  // Should be tautology
+}
+
+// ========================================
+// Tests for ARITY >= 3 (MVZDD / MVBDD)
+// ========================================
+
+// Ternary spec: each variable takes 3 values (0, 1, 2)
+// Counts combinations where sum of values equals target
+class TernarySum : public DdSpec<TernarySum, int, 3> {
+    int n_;       // number of variables
+    int target_;  // target sum
+
+public:
+    TernarySum(int n, int target) : n_(n), target_(target) {}
+
+    int getRoot(int& state) const {
+        state = 0;  // current sum
+        return n_;  // start from level n
+    }
+
+    int getChild(int& state, int level, int value) const {
+        state += value;  // add value (0, 1, or 2)
+        --level;
+
+        if (level == 0) {
+            return (state == target_) ? -1 : 0;  // -1 = accept, 0 = reject
+        }
+
+        // Pruning
+        int maxRemaining = level * 2;  // max sum from remaining variables
+        if (state > target_) return 0;  // already exceeded
+        if (state + maxRemaining < target_) return 0;  // cannot reach target
+
+        return level;
+    }
+};
+
+// Simple 4-ary spec: all combinations
+class QuaternaryPowerSet : public StatelessDdSpec<QuaternaryPowerSet, 4> {
+    int n_;
+
+public:
+    explicit QuaternaryPowerSet(int n) : n_(n) {}
+
+    int getRoot() const {
+        return n_;
+    }
+
+    int getChild(int level, int value) const {
+        (void)value;
+        if (level == 1) return -1;  // accept at bottom
+        return level - 1;
+    }
+};
+
+// 5-ary spec for testing
+class QuinarySpec : public StatelessDdSpec<QuinarySpec, 5> {
+    int n_;
+
+public:
+    explicit QuinarySpec(int n) : n_(n) {}
+
+    int getRoot() const {
+        return n_;
+    }
+
+    int getChild(int level, int value) const {
+        (void)value;
+        if (level == 1) return -1;
+        return level - 1;
+    }
+};
+
+TEST_F(TdZddTest, MVZDDTernaryBasic) {
+    // TernarySum(2, 2): 2 variables, target sum = 2
+    // Possible: (0,2), (1,1), (2,0) = 3 solutions
+    TernarySum spec(2, 2);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 3.0);
+}
+
+TEST_F(TdZddTest, MVZDDTernaryLarger) {
+    // TernarySum(3, 3): 3 variables, target sum = 3
+    // Combinations: (0,0,3) invalid, (0,1,2), (0,2,1), (1,0,2), (1,1,1), (1,2,0), (2,0,1), (2,1,0)
+    // Wait, max value is 2, so valid: (0,1,2), (0,2,1), (1,0,2), (1,1,1), (1,2,0), (2,0,1), (2,1,0)
+    // That's 7 solutions
+    TernarySum spec(3, 3);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 7.0);
+}
+
+TEST_F(TdZddTest, MVZDDTernaryEdgeCases) {
+    // TernarySum(3, 0): only (0,0,0) = 1 solution
+    {
+        TernarySum spec(3, 0);
+        MVZDD result = build_mvzdd(mgr, spec);
+        EXPECT_DOUBLE_EQ(result.card(), 1.0);
+    }
+
+    // TernarySum(3, 6): only (2,2,2) = 1 solution
+    {
+        TernarySum spec(3, 6);
+        MVZDD result = build_mvzdd(mgr, spec);
+        EXPECT_DOUBLE_EQ(result.card(), 1.0);
+    }
+
+    // TernarySum(3, 7): impossible (max is 6) = 0 solutions
+    {
+        TernarySum spec(3, 7);
+        MVZDD result = build_mvzdd(mgr, spec);
+        EXPECT_DOUBLE_EQ(result.card(), 0.0);
+    }
+}
+
+TEST_F(TdZddTest, MVZDDQuaternaryPowerSet) {
+    // QuaternaryPowerSet(2): 2 variables, each with 4 values
+    // Total: 4^2 = 16 combinations
+    QuaternaryPowerSet spec(2);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 4);
+    EXPECT_DOUBLE_EQ(result.card(), 16.0);
+}
+
+TEST_F(TdZddTest, MVZDDQuaternaryPowerSetLarger) {
+    // QuaternaryPowerSet(3): 3 variables, each with 4 values
+    // Total: 4^3 = 64 combinations
+    QuaternaryPowerSet spec(3);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 4);
+    EXPECT_DOUBLE_EQ(result.card(), 64.0);
+}
+
+TEST_F(TdZddTest, MVZDDQuinarySpec) {
+    // QuinarySpec(2): 2 variables, each with 5 values
+    // Total: 5^2 = 25 combinations
+    QuinarySpec spec(2);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 5);
+    EXPECT_DOUBLE_EQ(result.card(), 25.0);
+}
+
+TEST_F(TdZddTest, MVZDDEvaluate) {
+    // TernarySum(2, 2): solutions are (level2, level1) = (0,2), (1,1), (2,0)
+    // TdZdd level 2 (top) → MVDD variable 1
+    // TdZdd level 1 (bottom) → MVDD variable 2
+    // So evaluate({var1, var2}) = evaluate({level2, level1})
+    TernarySum spec(2, 2);
+    MVZDD result = build_mvzdd(mgr, spec);
+
+    // {level2, level1} format (= {var1, var2})
+    EXPECT_TRUE(result.evaluate({0, 2}));   // level2=0, level1=2
+    EXPECT_TRUE(result.evaluate({1, 1}));   // level2=1, level1=1
+    EXPECT_TRUE(result.evaluate({2, 0}));   // level2=2, level1=0
+
+    EXPECT_FALSE(result.evaluate({0, 0}));  // sum=0
+    EXPECT_FALSE(result.evaluate({0, 1}));  // sum=1
+    EXPECT_FALSE(result.evaluate({1, 0}));  // sum=1
+    EXPECT_FALSE(result.evaluate({2, 2}));  // sum=4
+}
+
+// MVBDD tests
+TEST_F(TdZddTest, MVBDDTernaryBasic) {
+    TernarySum spec(2, 2);
+    MVBDD result = build_mvbdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+
+    // Evaluate should give same results as MVZDD
+    // {level2, level1} format (= {var1, var2})
+    EXPECT_TRUE(result.evaluate({0, 2}));   // level2=0, level1=2
+    EXPECT_TRUE(result.evaluate({1, 1}));   // level2=1, level1=1
+    EXPECT_TRUE(result.evaluate({2, 0}));   // level2=2, level1=0
+
+    EXPECT_FALSE(result.evaluate({0, 0}));  // sum=0
+    EXPECT_FALSE(result.evaluate({0, 1}));  // sum=1
+    EXPECT_FALSE(result.evaluate({1, 0}));  // sum=1
+    EXPECT_FALSE(result.evaluate({2, 2}));  // sum=4
+}
+
+TEST_F(TdZddTest, MVBDDQuaternaryPowerSet) {
+    QuaternaryPowerSet spec(2);
+    MVBDD result = build_mvbdd(mgr, spec);
+
+    EXPECT_EQ(result.k(), 4);
+
+    // All combinations should evaluate to true
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            EXPECT_TRUE(result.evaluate({i, j}));
+        }
+    }
+}
+
+TEST_F(TdZddTest, MVBDDTernaryEdgeCases) {
+    // Empty result
+    {
+        TernarySum spec(3, 7);  // impossible
+        MVBDD result = build_mvbdd(mgr, spec);
+        EXPECT_TRUE(result.is_zero());
+    }
+
+    // Single result
+    {
+        TernarySum spec(2, 4);  // only (2,2)
+        MVBDD result = build_mvbdd(mgr, spec);
+        EXPECT_TRUE(result.evaluate({2, 2}));
+        EXPECT_FALSE(result.evaluate({0, 0}));
+        EXPECT_FALSE(result.evaluate({1, 2}));
+    }
 }
