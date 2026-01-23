@@ -15,6 +15,8 @@ add_executable(sbdd2_tests
     test_tdzdd.cpp
     test_mtbdd.cpp
     test_mtzdd.cpp
+    test_mvzdd.cpp
+    test_mvbdd.cpp
 )
 
 # Link against our library and GTest

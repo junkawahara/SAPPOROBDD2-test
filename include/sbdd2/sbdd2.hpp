@@ -24,6 +24,11 @@
 #include "mtbdd.hpp"
 #include "mtzdd.hpp"
 
+// Multi-Valued DD types
+#include "mvdd_base.hpp"
+#include "mvzdd.hpp"
+#include "mvbdd.hpp"
+
 // Derived classes
 #include "pidd.hpp"
 #include "seqbdd.hpp"

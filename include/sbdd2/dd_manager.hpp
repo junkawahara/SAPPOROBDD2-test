@@ -247,6 +247,55 @@ public:
         return var_to_level_[v1] > var_to_level_[v2];
     }
 
+    /**
+     * @brief MVDD用の変数群を作成
+     *
+     * k値表現のために k-1 個の内部DD変数を作成します。
+     * One-Hot風エンコーディングで、MVDD変数の各値を表現するために使用されます。
+     *
+     * @param k 値域サイズ (2 <= k <= 100)
+     * @return 作成された内部DD変数番号のベクタ (k-1個)
+     * @throw DDArgumentException kが範囲外の場合
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * auto dd_vars = mgr.new_mvdd_var(4);  // k=4 なら 3つの変数を作成
+     * // dd_vars = {1, 2, 3} （変数番号）
+     * @endcode
+     */
+    std::vector<bddvar> new_mvdd_var(int k) {
+        if (k < 2 || k > 100) {
+            throw DDArgumentException("k must be between 2 and 100");
+        }
+
+        std::vector<bddvar> result;
+        result.reserve(k - 1);
+
+        for (int i = 0; i < k - 1; ++i) {
+            result.push_back(new_var());
+        }
+
+        return result;
+    }
+
+    /**
+     * @brief 複数のMVDD変数を一括作成
+     * @param count 作成するMVDD変数の数
+     * @param k 値域サイズ
+     * @return 各MVDD変数に対応する内部DD変数群のベクタ
+     * @throw DDArgumentException kが範囲外の場合
+     */
+    std::vector<std::vector<bddvar>> new_mvdd_vars(int count, int k) {
+        std::vector<std::vector<bddvar>> result;
+        result.reserve(count);
+
+        for (int i = 0; i < count; ++i) {
+            result.push_back(new_mvdd_var(k));
+        }
+
+        return result;
+    }
+
     /// @}
 
     /// @name BDD/ZDD作成
