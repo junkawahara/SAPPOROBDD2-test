@@ -819,6 +819,407 @@ void export_zdd_as_knuth(const ZDD& zdd, const std::string& filename, bool is_he
     export_zdd_as_knuth(zdd, ofs, is_hex);
 }
 
+// ============== lib_bdd Format ==============
+// lib-bdd binary format: 10 bytes per node (little-endian)
+// - uint16_t level (0xFFFF for terminal)
+// - uint32_t low pointer
+// - uint32_t high pointer
+// Index 0 = false terminal, Index 1 = true terminal
+
+namespace {
+    // lib_bdd constants
+    constexpr std::uint16_t LIBBDD_TERMINAL_LEVEL = 0xFFFF;
+    constexpr std::uint32_t LIBBDD_FALSE_PTR = 0;
+    constexpr std::uint32_t LIBBDD_TRUE_PTR = 1;
+    constexpr std::size_t LIBBDD_NODE_SIZE = 10;
+
+    // Write little-endian uint16_t
+    void write_le_u16(std::ostream& os, std::uint16_t value) {
+        char bytes[2];
+        bytes[0] = static_cast<char>(value & 0xFF);
+        bytes[1] = static_cast<char>((value >> 8) & 0xFF);
+        os.write(bytes, 2);
+    }
+
+    // Write little-endian uint32_t
+    void write_le_u32(std::ostream& os, std::uint32_t value) {
+        char bytes[4];
+        bytes[0] = static_cast<char>(value & 0xFF);
+        bytes[1] = static_cast<char>((value >> 8) & 0xFF);
+        bytes[2] = static_cast<char>((value >> 16) & 0xFF);
+        bytes[3] = static_cast<char>((value >> 24) & 0xFF);
+        os.write(bytes, 4);
+    }
+
+    // Read little-endian uint16_t
+    std::uint16_t read_le_u16(std::istream& is) {
+        unsigned char bytes[2];
+        is.read(reinterpret_cast<char*>(bytes), 2);
+        return static_cast<std::uint16_t>(bytes[0]) |
+               (static_cast<std::uint16_t>(bytes[1]) << 8);
+    }
+
+    // Read little-endian uint32_t
+    std::uint32_t read_le_u32(std::istream& is) {
+        unsigned char bytes[4];
+        is.read(reinterpret_cast<char*>(bytes), 4);
+        return static_cast<std::uint32_t>(bytes[0]) |
+               (static_cast<std::uint32_t>(bytes[1]) << 8) |
+               (static_cast<std::uint32_t>(bytes[2]) << 16) |
+               (static_cast<std::uint32_t>(bytes[3]) << 24);
+    }
+
+    // lib_bdd node structure for reading
+    struct LibBddNode {
+        std::uint16_t level;
+        std::uint32_t low;
+        std::uint32_t high;
+
+        bool is_terminal() const { return level == LIBBDD_TERMINAL_LEVEL; }
+        bool is_false() const { return is_terminal() && low == LIBBDD_FALSE_PTR; }
+        bool is_true() const { return is_terminal() && low == LIBBDD_TRUE_PTR; }
+    };
+
+    // Read a single lib_bdd node
+    bool read_libbdd_node(std::istream& is, LibBddNode& node) {
+        node.level = read_le_u16(is);
+        node.low = read_le_u32(is);
+        node.high = read_le_u32(is);
+        return is.good() || is.eof();
+    }
+
+    // Write a single lib_bdd node
+    void write_libbdd_node(std::ostream& os, std::uint16_t level,
+                           std::uint32_t low, std::uint32_t high) {
+        write_le_u16(os, level);
+        write_le_u32(os, low);
+        write_le_u32(os, high);
+    }
+}
+
+// Import BDD from lib_bdd format
+BDD import_bdd_as_libbdd(DDManager& mgr, std::istream& is) {
+    std::vector<LibBddNode> nodes;
+
+    // Read all nodes
+    while (true) {
+        LibBddNode node;
+        std::streampos pos = is.tellg();
+        node.level = read_le_u16(is);
+
+        if (is.eof()) break;
+        if (!is.good()) break;
+
+        node.low = read_le_u32(is);
+        node.high = read_le_u32(is);
+
+        if (!is.good() && !is.eof()) break;
+
+        nodes.push_back(node);
+
+        if (is.eof()) break;
+    }
+
+    if (nodes.empty()) {
+        return mgr.bdd_zero();
+    }
+
+    // Only terminals
+    if (nodes.size() <= 2) {
+        if (nodes.size() == 1) {
+            return nodes[0].is_true() ? mgr.bdd_one() : mgr.bdd_zero();
+        }
+        // Two nodes: usually false and true terminals
+        return mgr.bdd_one();
+    }
+
+    // Build mapping from lib_bdd index to Arc
+    std::vector<Arc> arc_map(nodes.size());
+    arc_map[LIBBDD_FALSE_PTR] = ARC_TERMINAL_0;
+    arc_map[LIBBDD_TRUE_PTR] = ARC_TERMINAL_1;
+
+    // Process nodes bottom-up (higher indices first, which are typically deeper)
+    // Actually, lib_bdd stores nodes in bottom-up order, so we process in order
+    for (std::size_t i = 2; i < nodes.size(); ++i) {
+        const LibBddNode& n = nodes[i];
+
+        if (n.is_terminal()) {
+            // Additional terminal - shouldn't happen in well-formed BDD
+            arc_map[i] = n.is_true() ? ARC_TERMINAL_1 : ARC_TERMINAL_0;
+            continue;
+        }
+
+        // Validate indices
+        if (n.low >= i || n.high >= i) {
+            // Forward reference - invalid format
+            return mgr.bdd_zero();
+        }
+
+        Arc lo_arc = arc_map[n.low];
+        Arc hi_arc = arc_map[n.high];
+
+        // lib_bdd level is the variable number (1-indexed in SAPPOROBDD2)
+        bddvar var = static_cast<bddvar>(n.level + 1);
+
+        // Ensure variable exists
+        while (mgr.var_count() < var) {
+            mgr.new_var();
+        }
+
+        Arc arc = mgr.get_or_create_node_bdd(var, lo_arc, hi_arc, true);
+        arc_map[i] = arc;
+    }
+
+    // Root is the last node
+    return BDD(&mgr, arc_map[nodes.size() - 1]);
+}
+
+BDD import_bdd_as_libbdd(DDManager& mgr, const std::string& filename) {
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs) return mgr.bdd_zero();
+    return import_bdd_as_libbdd(mgr, ifs);
+}
+
+// Import ZDD from lib_bdd format
+ZDD import_zdd_as_libbdd(DDManager& mgr, std::istream& is) {
+    std::vector<LibBddNode> nodes;
+
+    // Read all nodes
+    while (true) {
+        LibBddNode node;
+        node.level = read_le_u16(is);
+
+        if (is.eof()) break;
+        if (!is.good()) break;
+
+        node.low = read_le_u32(is);
+        node.high = read_le_u32(is);
+
+        if (!is.good() && !is.eof()) break;
+
+        nodes.push_back(node);
+
+        if (is.eof()) break;
+    }
+
+    if (nodes.empty()) {
+        return ZDD::empty(mgr);
+    }
+
+    // Only terminals
+    if (nodes.size() <= 2) {
+        if (nodes.size() == 1) {
+            return nodes[0].is_true() ? ZDD::base(mgr) : ZDD::empty(mgr);
+        }
+        return ZDD::base(mgr);
+    }
+
+    // Build mapping from lib_bdd index to Arc
+    std::vector<Arc> arc_map(nodes.size());
+    arc_map[LIBBDD_FALSE_PTR] = ARC_TERMINAL_0;
+    arc_map[LIBBDD_TRUE_PTR] = ARC_TERMINAL_1;
+
+    // Process nodes in order (lib_bdd stores bottom-up)
+    for (std::size_t i = 2; i < nodes.size(); ++i) {
+        const LibBddNode& n = nodes[i];
+
+        if (n.is_terminal()) {
+            arc_map[i] = n.is_true() ? ARC_TERMINAL_1 : ARC_TERMINAL_0;
+            continue;
+        }
+
+        if (n.low >= i || n.high >= i) {
+            return ZDD::empty(mgr);
+        }
+
+        Arc lo_arc = arc_map[n.low];
+        Arc hi_arc = arc_map[n.high];
+
+        bddvar var = static_cast<bddvar>(n.level + 1);
+
+        while (mgr.var_count() < var) {
+            mgr.new_var();
+        }
+
+        Arc arc = mgr.get_or_create_node_zdd(var, lo_arc, hi_arc, true);
+        arc_map[i] = arc;
+    }
+
+    return ZDD(&mgr, arc_map[nodes.size() - 1]);
+}
+
+ZDD import_zdd_as_libbdd(DDManager& mgr, const std::string& filename) {
+    std::ifstream ifs(filename, std::ios::binary);
+    if (!ifs) return ZDD::empty(mgr);
+    return import_zdd_as_libbdd(mgr, ifs);
+}
+
+// Export BDD to lib_bdd format
+void export_bdd_as_libbdd(const BDD& bdd, std::ostream& os) {
+    if (!bdd.manager()) return;
+
+    DDManager* mgr = bdd.manager();
+
+    // Write false terminal (index 0)
+    write_libbdd_node(os, LIBBDD_TERMINAL_LEVEL, LIBBDD_FALSE_PTR, LIBBDD_FALSE_PTR);
+
+    // Write true terminal (index 1)
+    write_libbdd_node(os, LIBBDD_TERMINAL_LEVEL, LIBBDD_TRUE_PTR, LIBBDD_TRUE_PTR);
+
+    if (bdd.is_terminal()) {
+        // For terminal BDDs, we only need the two terminal nodes
+        // The BDD itself is represented by which terminal it equals
+        return;
+    }
+
+    // Collect all internal nodes
+    std::unordered_set<bddindex> visited;
+    std::vector<bddindex> nodes;
+    std::stack<Arc> stack;
+    stack.push(bdd.arc());
+
+    while (!stack.empty()) {
+        Arc a = stack.top();
+        stack.pop();
+
+        if (a.is_constant()) continue;
+
+        bddindex idx = a.index();
+        if (visited.count(idx)) continue;
+        visited.insert(idx);
+        nodes.push_back(idx);
+
+        const DDNode& node = mgr->node_at(idx);
+        stack.push(node.arc0());
+        stack.push(node.arc1());
+    }
+
+    // Sort by variable (descending) for bottom-up order in lib_bdd
+    std::sort(nodes.begin(), nodes.end(), [mgr](bddindex a, bddindex b) {
+        return mgr->node_at(a).var() > mgr->node_at(b).var();
+    });
+
+    // Create index mapping: SAPPOROBDD index -> lib_bdd index
+    // Indices 0 and 1 are reserved for terminals
+    std::unordered_map<bddindex, std::uint32_t> idx_map;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        idx_map[nodes[i]] = static_cast<std::uint32_t>(i + 2);
+    }
+
+    // Helper to convert Arc to lib_bdd pointer
+    auto arc_to_ptr = [&](Arc a) -> std::uint32_t {
+        if (a.is_constant()) {
+            bool value = a.terminal_value();
+            // Handle negation edge for BDD
+            if (a.is_negated()) value = !value;
+            return value ? LIBBDD_TRUE_PTR : LIBBDD_FALSE_PTR;
+        }
+        std::uint32_t ptr = idx_map[a.index()];
+        // Note: lib_bdd doesn't support negation edges directly
+        // For BDDs with negation edges, the structure needs special handling
+        return ptr;
+    };
+
+    // Write internal nodes
+    for (bddindex idx : nodes) {
+        const DDNode& node = mgr->node_at(idx);
+
+        // lib_bdd level is 0-indexed
+        std::uint16_t level = static_cast<std::uint16_t>(node.var() - 1);
+
+        Arc arc0 = node.arc0();
+        Arc arc1 = node.arc1();
+
+        // Handle negated root if necessary
+        bool root_neg = bdd.arc().is_negated() && idx == bdd.arc().index();
+
+        std::uint32_t low = arc_to_ptr(arc0);
+        std::uint32_t high = arc_to_ptr(arc1);
+
+        write_libbdd_node(os, level, low, high);
+    }
+}
+
+void export_bdd_as_libbdd(const BDD& bdd, const std::string& filename) {
+    std::ofstream ofs(filename, std::ios::binary);
+    if (!ofs) return;
+    export_bdd_as_libbdd(bdd, ofs);
+}
+
+// Export ZDD to lib_bdd format
+void export_zdd_as_libbdd(const ZDD& zdd, std::ostream& os) {
+    if (!zdd.manager()) return;
+
+    DDManager* mgr = zdd.manager();
+
+    // Write false terminal (index 0)
+    write_libbdd_node(os, LIBBDD_TERMINAL_LEVEL, LIBBDD_FALSE_PTR, LIBBDD_FALSE_PTR);
+
+    // Write true terminal (index 1)
+    write_libbdd_node(os, LIBBDD_TERMINAL_LEVEL, LIBBDD_TRUE_PTR, LIBBDD_TRUE_PTR);
+
+    if (zdd.is_terminal()) {
+        return;
+    }
+
+    // Collect all internal nodes
+    std::unordered_set<bddindex> visited;
+    std::vector<bddindex> nodes;
+    std::stack<Arc> stack;
+    stack.push(zdd.arc());
+
+    while (!stack.empty()) {
+        Arc a = stack.top();
+        stack.pop();
+
+        if (a.is_constant()) continue;
+
+        bddindex idx = a.index();
+        if (visited.count(idx)) continue;
+        visited.insert(idx);
+        nodes.push_back(idx);
+
+        const DDNode& node = mgr->node_at(idx);
+        stack.push(node.arc0());
+        stack.push(node.arc1());
+    }
+
+    // Sort by variable (descending) for bottom-up order
+    std::sort(nodes.begin(), nodes.end(), [mgr](bddindex a, bddindex b) {
+        return mgr->node_at(a).var() > mgr->node_at(b).var();
+    });
+
+    // Create index mapping
+    std::unordered_map<bddindex, std::uint32_t> idx_map;
+    for (std::size_t i = 0; i < nodes.size(); ++i) {
+        idx_map[nodes[i]] = static_cast<std::uint32_t>(i + 2);
+    }
+
+    auto arc_to_ptr = [&](Arc a) -> std::uint32_t {
+        if (a.is_constant()) {
+            return a.terminal_value() ? LIBBDD_TRUE_PTR : LIBBDD_FALSE_PTR;
+        }
+        return idx_map[a.index()];
+    };
+
+    // Write internal nodes
+    for (bddindex idx : nodes) {
+        const DDNode& node = mgr->node_at(idx);
+
+        std::uint16_t level = static_cast<std::uint16_t>(node.var() - 1);
+        std::uint32_t low = arc_to_ptr(node.arc0());
+        std::uint32_t high = arc_to_ptr(node.arc1());
+
+        write_libbdd_node(os, level, low, high);
+    }
+}
+
+void export_zdd_as_libbdd(const ZDD& zdd, const std::string& filename) {
+    std::ofstream ofs(filename, std::ios::binary);
+    if (!ofs) return;
+    export_zdd_as_libbdd(zdd, ofs);
+}
+
 // ============== SVG Format ==============
 
 void export_zdd_as_svg(const ZDD& zdd, std::ostream& os, const SvgExportOptions& options) {

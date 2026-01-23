@@ -196,6 +196,76 @@ void export_zdd_as_knuth(const ZDD& zdd, std::ostream& os, bool is_hex = false);
  */
 void export_zdd_as_knuth(const ZDD& zdd, const std::string& filename, bool is_hex = false);
 
+// ============== lib_bdd Format ==============
+// Compatible with Rust's lib-bdd library binary format
+// https://github.com/sybila/biodivine-lib-bdd
+//
+// Format: 10 bytes per node (little-endian)
+// - var_type (uint16_t): variable level (0xFFFF = terminal)
+// - ptr_type (uint32_t): low child pointer
+// - ptr_type (uint32_t): high child pointer
+// Index 0 = false terminal, Index 1 = true terminal
+
+/**
+ * @brief Import BDD from lib_bdd format
+ * @param mgr DDManager
+ * @param is Input stream
+ * @return Imported BDD
+ */
+BDD import_bdd_as_libbdd(DDManager& mgr, std::istream& is);
+
+/**
+ * @brief Import BDD from lib_bdd format file
+ * @param mgr DDManager
+ * @param filename File path
+ * @return Imported BDD
+ */
+BDD import_bdd_as_libbdd(DDManager& mgr, const std::string& filename);
+
+/**
+ * @brief Import ZDD from lib_bdd format
+ * @param mgr DDManager
+ * @param is Input stream
+ * @return Imported ZDD
+ */
+ZDD import_zdd_as_libbdd(DDManager& mgr, std::istream& is);
+
+/**
+ * @brief Import ZDD from lib_bdd format file
+ * @param mgr DDManager
+ * @param filename File path
+ * @return Imported ZDD
+ */
+ZDD import_zdd_as_libbdd(DDManager& mgr, const std::string& filename);
+
+/**
+ * @brief Export BDD to lib_bdd format
+ * @param bdd BDD to export
+ * @param os Output stream
+ */
+void export_bdd_as_libbdd(const BDD& bdd, std::ostream& os);
+
+/**
+ * @brief Export BDD to lib_bdd format file
+ * @param bdd BDD to export
+ * @param filename File path
+ */
+void export_bdd_as_libbdd(const BDD& bdd, const std::string& filename);
+
+/**
+ * @brief Export ZDD to lib_bdd format
+ * @param zdd ZDD to export
+ * @param os Output stream
+ */
+void export_zdd_as_libbdd(const ZDD& zdd, std::ostream& os);
+
+/**
+ * @brief Export ZDD to lib_bdd format file
+ * @param zdd ZDD to export
+ * @param filename File path
+ */
+void export_zdd_as_libbdd(const ZDD& zdd, const std::string& filename);
+
 // ============== SVG Format ==============
 // Export ZDD as SVG visualization
 
