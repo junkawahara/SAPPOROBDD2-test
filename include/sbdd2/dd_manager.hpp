@@ -17,6 +17,9 @@
 #include <mutex>
 #include <atomic>
 #include <functional>
+#include <typeindex>
+#include <memory>
+#include <unordered_map>
 
 namespace sbdd2 {
 
@@ -25,6 +28,8 @@ class BDD;
 class ZDD;
 class DDBase;
 class DDNodeRef;
+class MTBDDTerminalTableBase;
+template<typename T> class MTBDDTerminalTable;
 
 /**
  * @name デフォルトサイズ定数
@@ -62,6 +67,13 @@ enum class CacheOp : std::uint8_t {
     SYM_SET = 20,       ///< ZDD対称集合
     CO_IMPLY_SET = 21,  ///< ZDD逆インプリケーション集合
     MEET = 22,          ///< ZDD Meet演算
+    // MTBDD/MTZDD operations
+    MTBDD_PLUS = 30,    ///< MTBDD加算
+    MTBDD_MINUS = 31,   ///< MTBDD減算
+    MTBDD_TIMES = 32,   ///< MTBDD乗算
+    MTBDD_MIN = 33,     ///< MTBDD最小値
+    MTBDD_MAX = 34,     ///< MTBDD最大値
+    MTBDD_ITE = 35,     ///< MTBDD ITE演算
     // Custom
     CUSTOM = 255    ///< カスタム操作
 };
@@ -303,7 +315,55 @@ public:
      */
     Arc get_or_create_node_zdd(bddvar var, Arc arc0, Arc arc1, bool reduced = true);
 
+    /**
+     * @brief MTBDDノードを取得または作成（BDD縮約規則）
+     *
+     * 縮約規則: arc0 == arc1 の場合、子を返す。
+     * 否定枝は使用しない。
+     *
+     * @param var 変数番号
+     * @param arc0 0枝アーク
+     * @param arc1 1枝アーク
+     * @return ノードへのアーク（既存または新規）
+     */
+    Arc get_or_create_node_mtbdd(bddvar var, Arc arc0, Arc arc1);
+
+    /**
+     * @brief MTZDDノードを取得または作成（ZDD縮約規則）
+     *
+     * 縮約規則:
+     * 1. arc1がゼロ終端（index == zero_idx）の場合、arc0を返す。
+     * 2. arc0 == arc1 の場合、子を返す。
+     * 否定枝は使用しない。
+     *
+     * @param var 変数番号
+     * @param arc0 0枝アーク
+     * @param arc1 1枝アーク
+     * @param zero_idx ゼロ終端のインデックス（MTBDDTerminalTable<T>::zero_index()から取得）
+     * @return ノードへのアーク（既存または新規）
+     */
+    Arc get_or_create_node_mtzdd(bddvar var, Arc arc0, Arc arc1, bddindex zero_idx);
+
     /// @}
+
+    /// @name MTBDD終端テーブル管理
+    /// @{
+
+    /**
+     * @brief 型Tの終端テーブルを取得または作成
+     * @tparam T 終端値の型
+     * @return 終端テーブルへの参照
+     */
+    template<typename T>
+    MTBDDTerminalTable<T>& get_or_create_terminal_table();
+
+    /**
+     * @brief 型Tの終端テーブルを取得（存在しない場合はnullptr）
+     * @tparam T 終端値の型
+     * @return 終端テーブルへのポインタ、または nullptr
+     */
+    template<typename T>
+    MTBDDTerminalTable<T>* get_terminal_table() const;
 
     /// @name プレースホルダノード作成（TdZdd 移植用）
     /// @{
@@ -513,6 +573,11 @@ private:
     // Thread safety
     mutable std::mutex table_mutex_;
     mutable std::mutex cache_mutex_;
+    mutable std::mutex mtbdd_tables_mutex_;
+
+    // MTBDD terminal tables (one per type T)
+    std::unordered_map<std::type_index,
+                       std::unique_ptr<MTBDDTerminalTableBase>> mtbdd_tables_;
 
     // GC threshold
     double gc_threshold_;

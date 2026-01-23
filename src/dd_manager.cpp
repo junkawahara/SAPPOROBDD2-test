@@ -2,6 +2,7 @@
 // MIT License
 
 #include "sbdd2/dd_manager.hpp"
+#include "sbdd2/mtdd_base.hpp"  // For MTBDDTerminalTableBase complete type
 #include "sbdd2/bdd.hpp"
 #include "sbdd2/zdd.hpp"
 #include <algorithm>
@@ -56,6 +57,7 @@ DDManager::DDManager(DDManager&& other) noexcept
     , var_count_(other.var_count_.load())
     , var_to_level_(std::move(other.var_to_level_))
     , level_to_var_(std::move(other.level_to_var_))
+    , mtbdd_tables_(std::move(other.mtbdd_tables_))
     , gc_threshold_(other.gc_threshold_)
     , gc_min_nodes_(other.gc_min_nodes_)
 {
@@ -80,6 +82,7 @@ DDManager& DDManager::operator=(DDManager&& other) noexcept {
         var_count_ = other.var_count_.load();
         var_to_level_ = std::move(other.var_to_level_);
         level_to_var_ = std::move(other.level_to_var_);
+        mtbdd_tables_ = std::move(other.mtbdd_tables_);
         gc_threshold_ = other.gc_threshold_;
         gc_min_nodes_ = other.gc_min_nodes_;
 
@@ -277,6 +280,73 @@ Arc DDManager::get_or_create_node_zdd(bddvar var, Arc arc0, Arc arc1, bool reduc
     }
 
     idx = insert_node(var, arc0, arc1, reduced);
+    return Arc::node(idx, false);
+}
+
+// Get or create MTBDD node (BDD reduction rule, no negation edges)
+Arc DDManager::get_or_create_node_mtbdd(bddvar var, Arc arc0, Arc arc1) {
+    // MTBDD reduction rule: if both arcs are the same, return that arc
+    if (arc0 == arc1) {
+        return arc0;
+    }
+
+    // MTBDD does not use negation edges
+
+    std::lock_guard<std::mutex> lock(table_mutex_);
+
+    if (load_factor() > gc_threshold_) {
+        gc();
+        if (load_factor() > gc_threshold_) {
+            resize_table();
+        }
+    }
+
+    bddindex idx = find_node(var, arc0, arc1);
+    if (idx != BDDINDEX_MAX) {
+        nodes_[idx].inc_refcount();
+        if (nodes_[idx].refcount() == 1) {
+            ++alive_count_;
+        }
+        return Arc::node(idx, false);
+    }
+
+    idx = insert_node(var, arc0, arc1, true);
+    return Arc::node(idx, false);
+}
+
+// Get or create MTZDD node (ZDD reduction rule, no negation edges)
+Arc DDManager::get_or_create_node_mtzdd(bddvar var, Arc arc0, Arc arc1, bddindex zero_idx) {
+    // MTZDD reduction rule 1: if 1-arc points to zero terminal, return 0-arc
+    if (arc1.is_constant() && arc1.index() == zero_idx) {
+        return arc0;
+    }
+
+    // MTZDD reduction rule 2: if both arcs are the same, return that arc
+    if (arc0 == arc1) {
+        return arc0;
+    }
+
+    // MTZDD does not use negation edges
+
+    std::lock_guard<std::mutex> lock(table_mutex_);
+
+    if (load_factor() > gc_threshold_) {
+        gc();
+        if (load_factor() > gc_threshold_) {
+            resize_table();
+        }
+    }
+
+    bddindex idx = find_node(var, arc0, arc1);
+    if (idx != BDDINDEX_MAX) {
+        nodes_[idx].inc_refcount();
+        if (nodes_[idx].refcount() == 1) {
+            ++alive_count_;
+        }
+        return Arc::node(idx, false);
+    }
+
+    idx = insert_node(var, arc0, arc1, true);
     return Arc::node(idx, false);
 }
 

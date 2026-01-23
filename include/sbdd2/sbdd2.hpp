@@ -19,6 +19,11 @@
 #include "unreduced_zdd.hpp"
 #include "qdd.hpp"
 
+// Multi-Terminal DD types
+#include "mtdd_base.hpp"
+#include "mtbdd.hpp"
+#include "mtzdd.hpp"
+
 // Derived classes
 #include "pidd.hpp"
 #include "seqbdd.hpp"
