@@ -10,6 +10,7 @@ API リファレンス
    bdd
    zdd
    zdd_helper
+   mtbdd
    extended
    utility
    tdzdd
@@ -30,6 +31,8 @@ API リファレンス
 
 * :cpp:class:`sbdd2::BDD` - 縮約BDD
 * :cpp:class:`sbdd2::ZDD` - 縮約ZDD
+* :cpp:class:`sbdd2::MTBDD` - Multi-Terminal BDD
+* :cpp:class:`sbdd2::MTZDD` - Multi-Terminal ZDD
 * :cpp:class:`sbdd2::UnreducedBDD` - 非縮約BDD
 * :cpp:class:`sbdd2::UnreducedZDD` - 非縮約ZDD
 * :cpp:class:`sbdd2::QDD` - 準縮約DD
