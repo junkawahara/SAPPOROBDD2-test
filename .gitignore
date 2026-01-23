@@ -45,12 +45,9 @@ Testing/
 .DS_Store
 Thumbs.db
 
-# Reference library (not part of this project)
-SAPPOROBDD-plus-plus/
-sbdd_helper/
-
 # Design documents (not part of distribution)
 SAPPOROBDD_2.0_design.md
 next_impl.md
 
+# Reference libraries (not part of this project)
 vendor/

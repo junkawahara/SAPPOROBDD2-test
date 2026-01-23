@@ -19,7 +19,9 @@ SAPPOROBDD2/
 ├── tests/             # Google Test unit tests
 ├── docs/              # Sphinx + Breathe documentation
 ├── build/             # Build directory
-└── SAPPOROBDD-plus-plus/  # Reference: original library
+└── vendor/            # Reference libraries (gitignored)
+    ├── SAPPOROBDD-plus-plus/  # Original library
+    └── sbdd_helper/           # Helper library
 ```
 
 ## Main Classes
@@ -98,4 +100,5 @@ See `next_impl.md` for potential future items:
 ## References
 
 - `SAPPOROBDD_2.0_design.md` - Design specification
-- `SAPPOROBDD-plus-plus/` - Original library (API reference)
+- `vendor/SAPPOROBDD-plus-plus/` - Original library (API reference)
+- `vendor/sbdd_helper/` - Helper library (API reference)
