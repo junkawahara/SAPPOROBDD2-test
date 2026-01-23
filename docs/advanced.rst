@@ -310,3 +310,298 @@ VarArity Spec演算
    } catch (const DDArgumentException& e) {
        // "VarArity spec operations require both specs to have the same ARITY"
    }
+
+DFS Frontier-based Search によるZDD構築
+---------------------------------------
+
+概要
+~~~~
+
+``build_zdd_dfs()`` は深さ優先探索（DFS）によりZDDを構築する関数です。
+既存のBFSベースの ``build_zdd()`` と比較して、多くの問題でメモリ効率が向上します。
+
+.. code-block:: cpp
+
+   #include "sbdd2/tdzdd/Sbdd2BuilderDFS.hpp"
+
+   using namespace sbdd2;
+   using namespace sbdd2::tdzdd;
+
+   DDManager mgr;
+   Combination spec(10, 5);  // C(10,5) を列挙
+
+   // DFS版（メモリ効率が良い）
+   ZDD result = build_zdd_dfs(mgr, spec);
+
+   // BFS版（従来の方法）
+   ZDD result2 = build_zdd(mgr, spec);
+
+   // 両者は同じ結果を返す
+   assert(result.card() == result2.card());
+
+BFSとDFSの比較
+~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 40 40
+
+   * - 特性
+     - BFS (build_zdd)
+     - DFS (build_zdd_dfs)
+   * - メモリ使用量
+     - 全レベルの状態を保持
+     - 再帰スタック＋キャッシュのみ
+   * - 構築順序
+     - レベルごとに上から下へ
+     - パスごとに根から葉へ
+   * - 適したケース
+     - 状態数が各レベルで均一
+     - 深い枝刈りが効く問題
+   * - キャッシュ
+     - DDManagerのキャッシュを使用
+     - 独自のDFSキャッシュを使用
+
+アルゴリズム
+~~~~~~~~~~~~
+
+DFS構築の疑似コードは以下の通りです：
+
+.. code-block:: text
+
+   function dfs_build(spec, level, state, cache):
+       if level == 0: return TERMINAL_0
+       if level < 0:  return TERMINAL_1
+
+       // キャッシュ検索
+       if cache.lookup(level, state, result):
+           return result
+
+       // 0-枝を再帰的に構築
+       state0 = copy(state)
+       level0 = spec.get_child(state0, level, 0)
+       arc0 = dfs_build(spec, level0, state0, cache)
+
+       // 1-枝を再帰的に構築
+       state1 = copy(state)
+       level1 = spec.get_child(state1, level, 1)
+       arc1 = dfs_build(spec, level1, state1, cache)
+
+       // ZDD還約規則：1-arcが0終端なら0-arcをそのまま返す
+       if arc1 == TERMINAL_0:
+           result = arc0
+       else:
+           result = create_node(var, arc0, arc1)
+
+       cache.insert(level, state, result)
+       return result
+
+DFSキャッシュ
+~~~~~~~~~~~~~
+
+``DFSCache`` クラスは ``(level, state_hash)`` をキーとして、
+計算済みの状態とZDD結果をキャッシュします。
+
+.. code-block:: cpp
+
+   // キャッシュの内部構造
+   template<typename SPEC>
+   class DFSCache {
+       struct Entry {
+           std::vector<char> state;  // 状態データ
+           Arc result;               // ZDD結果
+       };
+
+       // key = hash(level, state_hash)
+       std::unordered_map<size_t, std::vector<Entry>> table_;
+
+   public:
+       bool lookup(SPEC& spec, int level, const void* state,
+                   size_t state_hash, Arc& result);
+       void insert(SPEC& spec, int level, const void* state,
+                   size_t state_hash, Arc result);
+   };
+
+キャッシュはハッシュ衝突を ``spec.equal_to()`` で解決します。
+
+フロンティア法との組み合わせ
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+DFS構築はフロンティア法（Frontier-based Search）と組み合わせることで、
+グラフ列挙問題を効率的に解くことができます。
+
+**フロンティアとは：**
+
+グラフの辺を順に処理する際、「現在処理中の辺に隣接する頂点の集合」を
+フロンティアと呼びます。フロンティア上の頂点のみ状態を保持することで、
+メモリ使用量を削減できます。
+
+**Mate配列：**
+
+フロンティア上の各頂点の接続状態を記録する配列です。
+ハミルトンパス問題の場合：
+
+* ``-1``: 未使用
+* ``-2``: 次数1（パスの端点）
+* ``-3``: 次数2（飽和）
+* ``v``: 頂点vと同じ連結成分
+
+使用例：マッチング列挙
+~~~~~~~~~~~~~~~~~~~~~~
+
+グラフのマッチング（各頂点の次数が1以下の辺集合）を列挙する例：
+
+.. code-block:: cpp
+
+   #include "sbdd2/tdzdd/DdSpec.hpp"
+   #include "sbdd2/tdzdd/Sbdd2BuilderDFS.hpp"
+
+   using namespace sbdd2;
+   using namespace sbdd2::tdzdd;
+
+   class MatchingSpec
+       : public HybridDdSpec<MatchingSpec, int, int, 2> {
+       int n_;
+       std::vector<std::pair<int, int>> edges_;
+       // ... フロンティア管理のメンバ変数 ...
+
+   public:
+       MatchingSpec(int n, const std::vector<std::pair<int, int>>& edges)
+           : n_(n), edges_(edges) {
+           // フロンティア初期化
+           init_frontier();
+           setArraySize(max_frontier_size_);
+       }
+
+       int getRoot(int& state, int* degree) {
+           state = 0;  // マッチングの辺数
+           for (int i = 0; i < max_frontier_size_; ++i) {
+               degree[i] = 0;  // 各頂点の次数
+           }
+           return edges_.size();
+       }
+
+       int getChild(int& state, int* degree, int level, int value) {
+           auto [u, v] = edge_at_level(level);
+
+           if (value == 1) {
+               // 辺を含める：次数チェック
+               if (degree[pos_u] >= 1 || degree[pos_v] >= 1)
+                   return 0;  // 次数制約違反
+               degree[pos_u]++;
+               degree[pos_v]++;
+               state++;
+           }
+
+           // フロンティア更新
+           update_frontier(degree, level);
+
+           return (level == 1) ? -1 : level - 1;
+       }
+   };
+
+   int main() {
+       DDManager mgr;
+
+       // 三角形グラフ K3
+       std::vector<std::pair<int, int>> edges = {{0,1}, {1,2}, {0,2}};
+       MatchingSpec spec(3, edges);
+
+       ZDD matchings = build_zdd_dfs(mgr, spec);
+       std::cout << "マッチング数: " << matchings.card() << std::endl;
+       // 出力: マッチング数: 4 ({}, {01}, {12}, {02})
+
+       return 0;
+   }
+
+使用例：独立集合列挙
+~~~~~~~~~~~~~~~~~~~~
+
+グラフの独立集合（隣接する頂点を含まない頂点集合）を列挙する例：
+
+.. code-block:: cpp
+
+   class IndependentSetSpec
+       : public HybridDdSpec<IndependentSetSpec, int, int, 2> {
+       int n_;
+       std::vector<std::vector<int>> adj_;  // 隣接リスト
+
+   public:
+       IndependentSetSpec(int n, const std::vector<std::pair<int,int>>& edges)
+           : n_(n) {
+           adj_.resize(n);
+           for (auto [u, v] : edges) {
+               adj_[u].push_back(v);
+               adj_[v].push_back(u);
+           }
+           setArraySize(n);
+       }
+
+       int getRoot(int& state, int* in_set) {
+           state = 0;
+           for (int i = 0; i < n_; ++i) in_set[i] = 0;
+           return n_;
+       }
+
+       int getChild(int& state, int* in_set, int level, int value) {
+           int v = n_ - level;
+
+           if (value == 1) {
+               // 隣接頂点が既に集合内にあればNG
+               for (int u : adj_[v]) {
+                   if (u < v && in_set[u]) return 0;
+               }
+               in_set[v] = 1;
+               state++;
+           }
+
+           return (--level == 0) ? -1 : level;
+       }
+   };
+
+BDD構築
+~~~~~~~
+
+DFSによるBDD構築も同様に利用できます：
+
+.. code-block:: cpp
+
+   // パリティ制約：選択数が偶数
+   class EvenParitySpec : public DdSpec<EvenParitySpec, int, 2> {
+       int n_;
+
+   public:
+       EvenParitySpec(int n) : n_(n) {}
+
+       int getRoot(int& count) const {
+           count = 0;
+           return n_;
+       }
+
+       int getChild(int& count, int level, int value) const {
+           count += value;
+           return (--level == 0) ? ((count % 2 == 0) ? -1 : 0) : level;
+       }
+   };
+
+   DDManager mgr;
+   EvenParitySpec spec(5);
+   BDD result = build_bdd_dfs(mgr, spec);  // BDD版
+
+注意事項
+~~~~~~~~
+
+1. **再帰深度**: DFSは再帰を使用するため、非常に深いグラフでは
+   スタックオーバーフローの可能性があります。
+
+2. **キャッシュサイズ**: 状態空間が大きい問題では、キャッシュが
+   大量のメモリを消費する可能性があります。
+
+3. **状態のコピー**: 各再帰呼び出しで状態をコピーするため、
+   状態サイズが大きい場合はオーバーヘッドがあります。
+
+4. **BFS版との使い分け**:
+
+   * 枝刈りが効く問題 → DFS推奨
+   * 状態数が均一な問題 → BFS推奨
+   * メモリ制約が厳しい → DFS推奨
