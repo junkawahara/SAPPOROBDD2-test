@@ -698,3 +698,483 @@ TEST_F(TdZddDFSTest, LargePowerSet) {
 
     EXPECT_DOUBLE_EQ(result.card(), 4096.0);
 }
+
+// ========================================
+// Additional tests for DFS builder
+// ========================================
+
+// PodArrayDdSpec test: Knapsack problem
+class KnapsackSpec : public PodArrayDdSpec<KnapsackSpec, int, 2> {
+    int n_;
+    int capacity_;
+    std::vector<int> weights_;
+
+public:
+    KnapsackSpec(int n, int capacity, const std::vector<int>& weights)
+        : n_(n), capacity_(capacity), weights_(weights) {
+        setArraySize(1);  // store current weight
+    }
+
+    int getRoot(int* a) {
+        a[0] = 0;  // current weight = 0
+        return n_;
+    }
+
+    int getChild(int* a, int level, int value) {
+        int item = n_ - level;  // item index (0-based)
+        if (value == 1) {
+            a[0] += weights_[item];
+            if (a[0] > capacity_) return 0;  // exceeds capacity
+        }
+        --level;
+        if (level == 0) return -1;  // accept any valid subset
+        return level;
+    }
+};
+
+TEST_F(TdZddDFSTest, KnapsackBasic) {
+    // Items with weights [1, 2, 3], capacity 3
+    // Valid subsets: {}, {1}, {2}, {3}, {1,2} = 5 subsets
+    std::vector<int> weights = {1, 2, 3};
+    KnapsackSpec spec(3, 3, weights);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 5.0);
+}
+
+TEST_F(TdZddDFSTest, KnapsackCompareBFS) {
+    std::vector<int> weights = {2, 3, 4, 5};
+    KnapsackSpec spec1(4, 7, weights);
+    KnapsackSpec spec2(4, 7, weights);
+
+    ZDD dfs_result = build_zdd_dfs(mgr, spec1);
+    ZDD bfs_result = build_zdd(mgr, spec2);
+
+    EXPECT_DOUBLE_EQ(dfs_result.card(), bfs_result.card());
+}
+
+// Test with HybridDdSpec: Sum constraint
+class SumConstraintSpec
+    : public HybridDdSpec<SumConstraintSpec, int, int, 2> {
+    int n_;
+    int target_;
+
+public:
+    SumConstraintSpec(int n, int target) : n_(n), target_(target) {
+        setArraySize(1);
+    }
+
+    int getRoot(int& s, int* a) {
+        s = 0;      // current sum
+        a[0] = 0;   // count of selected items
+        return n_;
+    }
+
+    int getChild(int& s, int* a, int level, int value) {
+        if (value == 1) {
+            s += level;  // add level as value
+            a[0]++;
+        }
+        --level;
+        if (level == 0) {
+            return (s == target_) ? -1 : 0;
+        }
+        // Pruning: if sum already exceeds target
+        if (s > target_) return 0;
+        return level;
+    }
+};
+
+TEST_F(TdZddDFSTest, SumConstraintBasic) {
+    // n=4: items are 4, 3, 2, 1
+    // target=5: {4,1}, {3,2} = 2 solutions
+    SumConstraintSpec spec(4, 5);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 2.0);
+}
+
+TEST_F(TdZddDFSTest, SumConstraintCompareBFS) {
+    SumConstraintSpec spec1(6, 10);
+    SumConstraintSpec spec2(6, 10);
+
+    ZDD dfs_result = build_zdd_dfs(mgr, spec1);
+    ZDD bfs_result = build_zdd(mgr, spec2);
+
+    EXPECT_DOUBLE_EQ(dfs_result.card(), bfs_result.card());
+}
+
+// Edge case tests
+TEST_F(TdZddDFSTest, EmptySetOnly) {
+    // C(5, 0) = 1 (only the empty set)
+    Combination spec(5, 0);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 1.0);
+}
+
+TEST_F(TdZddDFSTest, BaseZDD) {
+    // PowerSet with n=0 should return base (empty set only)
+    // Actually PowerSet(0) returns level 0, which is empty ZDD
+    // Test that accepting immediately works
+    class AcceptAll : public StatelessDdSpec<AcceptAll, 2> {
+    public:
+        int getRoot() const { return -1; }  // Accept immediately
+        int getChild(int, int) const { return 0; }  // Never called
+    };
+
+    AcceptAll spec;
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 1.0);  // base ZDD
+}
+
+TEST_F(TdZddDFSTest, SingleVariable) {
+    // PowerSet(1) = {{}, {1}} = 2
+    PowerSet spec(1);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 2.0);
+}
+
+TEST_F(TdZddDFSTest, AllReject) {
+    // C(3, 10) = 0 (impossible)
+    Combination spec(3, 10);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 0.0);
+}
+
+// Result comparison between DFS and BFS
+TEST_F(TdZddDFSTest, ResultComparison) {
+    Combination spec1(10, 5);
+    Combination spec2(10, 5);
+
+    ZDD dfs_result = build_zdd_dfs(mgr, spec1);
+    ZDD bfs_result = build_zdd(mgr, spec2);
+
+    // Both should produce the same cardinality
+    EXPECT_DOUBLE_EQ(dfs_result.card(), bfs_result.card());
+    EXPECT_DOUBLE_EQ(dfs_result.card(), 252.0);
+
+    // Results should be equivalent
+    EXPECT_TRUE((dfs_result - bfs_result).card() == 0.0);
+    EXPECT_TRUE((bfs_result - dfs_result).card() == 0.0);
+}
+
+// Test ZDD operations on DFS-built ZDDs
+TEST_F(TdZddDFSTest, ZddOperationsOnDfsResult) {
+    Combination spec1(5, 2);
+    Combination spec2(5, 3);
+
+    ZDD zdd1 = build_zdd_dfs(mgr, spec1);  // C(5,2) = 10
+    ZDD zdd2 = build_zdd_dfs(mgr, spec2);  // C(5,3) = 10
+
+    // Union: C(5,2) + C(5,3) = 20 (no overlap)
+    ZDD union_result = zdd1 + zdd2;
+    EXPECT_DOUBLE_EQ(union_result.card(), 20.0);
+
+    // Intersection: C(5,2) ∩ C(5,3) = 0 (no overlap)
+    ZDD intersect_result = zdd1 * zdd2;
+    EXPECT_DOUBLE_EQ(intersect_result.card(), 0.0);
+}
+
+// Graph matching test
+class MatchingSpec : public HybridDdSpec<MatchingSpec, int, int, 2> {
+    int n_;  // vertices
+    std::vector<std::pair<int, int>> edges_;
+    int num_edges_;
+    std::vector<int> enter_level_;
+    std::vector<int> leave_level_;
+    int max_frontier_size_;
+
+    std::pair<int, int> edge_at_level(int level) const {
+        return edges_[num_edges_ - level];
+    }
+
+    bool on_frontier(int v, int level) const {
+        return level <= enter_level_[v] && level >= leave_level_[v];
+    }
+
+    int frontier_pos(int v, int level) const {
+        if (!on_frontier(v, level)) return -1;
+        int pos = 0;
+        for (int u = 0; u < v; ++u) {
+            if (on_frontier(u, level)) ++pos;
+        }
+        return pos;
+    }
+
+    int frontier_size(int level) const {
+        int size = 0;
+        for (int v = 0; v < n_; ++v) {
+            if (on_frontier(v, level)) ++size;
+        }
+        return size;
+    }
+
+    void init_frontier() {
+        enter_level_.assign(n_, 0);
+        leave_level_.assign(n_, num_edges_ + 1);
+
+        for (int i = 0; i < num_edges_; ++i) {
+            int level = num_edges_ - i;
+            int u = edges_[i].first;
+            int v = edges_[i].second;
+            if (enter_level_[u] == 0) enter_level_[u] = level;
+            if (enter_level_[v] == 0) enter_level_[v] = level;
+            leave_level_[u] = level;
+            leave_level_[v] = level;
+        }
+
+        max_frontier_size_ = 0;
+        for (int level = num_edges_; level >= 1; --level) {
+            int size = frontier_size(level);
+            if (size > max_frontier_size_) max_frontier_size_ = size;
+        }
+    }
+
+public:
+    // Enumerate all matchings (edge sets where each vertex has degree <= 1)
+    MatchingSpec(int n, const std::vector<std::pair<int, int>>& edges)
+        : n_(n), edges_(edges), num_edges_(static_cast<int>(edges.size())) {
+        init_frontier();
+        setArraySize(max_frontier_size_ > 0 ? max_frontier_size_ : 1);
+    }
+
+    int getRoot(int& state, int* degree) {
+        if (num_edges_ == 0) {
+            return -1;  // Empty matching is valid
+        }
+        state = 0;  // number of edges in matching
+        for (int i = 0; i < max_frontier_size_; ++i) {
+            degree[i] = 0;
+        }
+        return num_edges_;
+    }
+
+    int getChild(int& state, int* degree, int level, int value) {
+        auto e = edge_at_level(level);
+        int u = e.first;
+        int v = e.second;
+        int pos_u = frontier_pos(u, level);
+        int pos_v = frontier_pos(v, level);
+
+        if (value == 1) {
+            // Include edge: check degree constraint
+            if (pos_u >= 0 && degree[pos_u] >= 1) return 0;
+            if (pos_v >= 0 && degree[pos_v] >= 1) return 0;
+
+            if (pos_u >= 0) degree[pos_u]++;
+            if (pos_v >= 0) degree[pos_v]++;
+            state++;
+        }
+
+        int next_level = level - 1;
+        if (next_level == 0) {
+            return -1;  // Accept any valid matching
+        }
+
+        // Update frontier
+        int new_frontier[100];
+        int new_size = 0;
+        for (int i = 0; i < n_; ++i) {
+            if (on_frontier(i, next_level)) {
+                int old_pos = frontier_pos(i, level);
+                new_frontier[new_size] = (old_pos >= 0) ? degree[old_pos] : 0;
+                ++new_size;
+            }
+        }
+        for (int i = 0; i < new_size; ++i) {
+            degree[i] = new_frontier[i];
+        }
+
+        return next_level;
+    }
+};
+
+TEST_F(TdZddDFSTest, Matching_Triangle) {
+    // K3: 3 edges, matchings are:
+    // {}, {e1}, {e2}, {e3} = 4 matchings
+    std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {0, 2}};
+    MatchingSpec spec(3, edges);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 4.0);
+}
+
+TEST_F(TdZddDFSTest, Matching_Path) {
+    // Path P4: 0-1-2-3, edges (0,1), (1,2), (2,3)
+    // Matchings: {}, {01}, {12}, {23}, {01,23} = 5
+    std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 3}};
+    MatchingSpec spec(4, edges);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 5.0);
+}
+
+TEST_F(TdZddDFSTest, Matching_Square) {
+    // C4: 4 edges
+    // Matchings: {}, {01}, {12}, {23}, {30}, {01,23}, {12,30} = 7
+    std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 3}, {3, 0}};
+    MatchingSpec spec(4, edges);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 7.0);
+}
+
+// Independent set test
+class IndependentSetSpec : public HybridDdSpec<IndependentSetSpec, int, int, 2> {
+    int n_;
+    std::vector<std::pair<int, int>> edges_;
+    int num_edges_;
+    std::vector<std::vector<int>> adj_;  // adjacency list
+
+public:
+    IndependentSetSpec(int n, const std::vector<std::pair<int, int>>& edges)
+        : n_(n), edges_(edges), num_edges_(static_cast<int>(edges.size())) {
+        adj_.resize(n);
+        for (const auto& e : edges) {
+            adj_[e.first].push_back(e.second);
+            adj_[e.second].push_back(e.first);
+        }
+        setArraySize(n);  // track which vertices are in the set
+    }
+
+    int getRoot(int& state, int* in_set) {
+        state = 0;
+        for (int i = 0; i < n_; ++i) {
+            in_set[i] = 0;  // 0 = not in set, 1 = in set
+        }
+        return n_;
+    }
+
+    int getChild(int& state, int* in_set, int level, int value) {
+        int v = n_ - level;  // vertex being considered
+
+        if (value == 1) {
+            // Check if any neighbor is already in the set
+            for (int u : adj_[v]) {
+                if (u < v && in_set[u] == 1) {
+                    return 0;  // neighbor already in set
+                }
+            }
+            in_set[v] = 1;
+            state++;
+        }
+
+        --level;
+        if (level == 0) {
+            return -1;  // accept any independent set
+        }
+        return level;
+    }
+};
+
+TEST_F(TdZddDFSTest, IndependentSet_Triangle) {
+    // K3: independent sets are {}, {0}, {1}, {2} = 4
+    std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {0, 2}};
+    IndependentSetSpec spec(3, edges);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 4.0);
+}
+
+TEST_F(TdZddDFSTest, IndependentSet_Path) {
+    // P4: 0-1-2-3
+    // Independent sets: {}, {0}, {1}, {2}, {3}, {0,2}, {0,3}, {1,3}, {0,2,3}...
+    // Actually: {}, {0}, {1}, {2}, {3}, {02}, {03}, {13}, {02}, {13}
+    // Let me recalculate: vertices 0,1,2,3, edges 01,12,23
+    // IS: {}, {0}, {1}, {2}, {3}, {0,2}, {0,3}, {1,3}, {0,2} is same as {02}
+    // {02}, {03}, {13}, {02,3}=impossible, {0,2,3}=impossible (2-3 edge)
+    // Actually {0,3} is valid (no edge), {1,3} is valid
+    // Full list: {}, {0}, {1}, {2}, {3}, {0,2}, {0,3}, {1,3} = 8
+    std::vector<std::pair<int, int>> edges = {{0, 1}, {1, 2}, {2, 3}};
+    IndependentSetSpec spec(4, edges);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 8.0);
+}
+
+// Larger test for stress testing
+TEST_F(TdZddDFSTest, StressTestCombination) {
+    // C(20, 10) = 184756
+    Combination spec(20, 10);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 184756.0);
+}
+
+TEST_F(TdZddDFSTest, StressTestCompareBFS) {
+    // Compare on larger instance
+    Combination spec1(18, 9);
+    Combination spec2(18, 9);
+
+    ZDD dfs_result = build_zdd_dfs(mgr, spec1);
+    ZDD bfs_result = build_zdd(mgr, spec2);
+
+    EXPECT_DOUBLE_EQ(dfs_result.card(), bfs_result.card());
+    EXPECT_DOUBLE_EQ(dfs_result.card(), 48620.0);  // C(18,9)
+}
+
+// Test BDD with more complex spec
+class ParitySpec : public DdSpec<ParitySpec, int, 2> {
+    int n_;
+    int target_parity_;  // 0 = even, 1 = odd
+
+public:
+    ParitySpec(int n, int parity) : n_(n), target_parity_(parity) {}
+
+    int getRoot(int& state) const {
+        state = 0;  // current count of 1s
+        return n_;
+    }
+
+    int getChild(int& state, int level, int value) const {
+        state += value;
+        --level;
+        if (level == 0) {
+            return ((state % 2) == target_parity_) ? -1 : 0;
+        }
+        return level;
+    }
+};
+
+TEST_F(TdZddDFSTest, BddParity) {
+    // Count subsets with even number of elements
+    // For n=4: 2^3 = 8 (half of 16)
+    ParitySpec spec(4, 0);
+    ZDD result = build_zdd_dfs(mgr, spec);
+
+    EXPECT_DOUBLE_EQ(result.card(), 8.0);
+}
+
+TEST_F(TdZddDFSTest, BddParityCompareBFS) {
+    ParitySpec spec1(6, 1);
+    ParitySpec spec2(6, 1);
+
+    ZDD dfs_result = build_zdd_dfs(mgr, spec1);
+    ZDD bfs_result = build_zdd(mgr, spec2);
+
+    EXPECT_DOUBLE_EQ(dfs_result.card(), bfs_result.card());
+    EXPECT_DOUBLE_EQ(dfs_result.card(), 32.0);  // 2^5
+}
+
+// Test multiple specs with same manager
+TEST_F(TdZddDFSTest, MultipleSpecsSameManager) {
+    Combination comb(5, 2);
+    PowerSet power(5);
+    Singleton single(5);
+
+    ZDD z1 = build_zdd_dfs(mgr, comb);
+    ZDD z2 = build_zdd_dfs(mgr, power);
+    ZDD z3 = build_zdd_dfs(mgr, single);
+
+    EXPECT_DOUBLE_EQ(z1.card(), 10.0);   // C(5,2)
+    EXPECT_DOUBLE_EQ(z2.card(), 32.0);   // 2^5
+    EXPECT_DOUBLE_EQ(z3.card(), 5.0);    // 5 singletons
+
+    // Operations between them
+    ZDD union_12 = z1 + z3;  // C(5,2) + singletons = 10 + 5 = 15 (no overlap)
+    EXPECT_DOUBLE_EQ(union_12.card(), 15.0);
+}
