@@ -212,3 +212,255 @@ GMPがインストールされている場合、``exact_count()`` で任意精�
 .. note::
    ``exact_count()`` は ``SBDD2_HAS_GMP`` が定義されている場合のみ使用可能です。
    GMPがインストールされていれば、CMakeが自動検出します。
+
+ZDDイテレータ
+-------------
+
+ZDDに含まれる集合を様々な順序で列挙するためのイテレータクラスを提供します。
+
+DictIterator（辞書順イテレータ）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: sbdd2::DictIterator
+   :members:
+   :undoc-members:
+
+ZDD内の集合を辞書順で列挙します。O(1)のメモリオーバーヘッドで効率的に列挙できます。
+
+.. code-block:: cpp
+
+   ZDD zdd = ...;
+
+   // 辞書順で列挙
+   for (auto it = zdd.dict_begin(); it != zdd.dict_end(); ++it) {
+       std::set<bddvar> s = *it;
+       for (auto elem : s) {
+           std::cout << elem << " ";
+       }
+       std::cout << std::endl;
+   }
+
+   // 逆順で列挙
+   for (auto it = zdd.dict_rbegin(); it != zdd.dict_rend(); ++it) {
+       // ...
+   }
+
+WeightIterator（重み順イテレータ）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: sbdd2::WeightIterator
+   :members:
+   :undoc-members:
+
+ZDD内の集合を重み順（昇順または降順）で列挙します。
+内部的にZDDのコピーを保持し、各イテレーションで現在の最小/最大集合を取り除きます。
+
+.. code-block:: cpp
+
+   ZDD zdd = ...;
+   std::vector<int64_t> weights = {0, 10, 20, 30};  // weights[var] = 変数varの重み
+
+   // 重み昇順で列挙
+   for (auto it = zdd.weight_min_begin(weights); it != zdd.weight_min_end(); ++it) {
+       std::set<bddvar> s = *it;
+       // sは現在最も軽い集合
+   }
+
+   // 重み降順で列挙
+   for (auto it = zdd.weight_max_begin(weights); it != zdd.weight_max_end(); ++it) {
+       std::set<bddvar> s = *it;
+       // sは現在最も重い集合
+   }
+
+RandomIterator（ランダム順イテレータ）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. doxygenclass:: sbdd2::RandomIterator
+   :members:
+   :undoc-members:
+
+ZDD内の集合をランダム順で列挙します（重複なし）。
+内部的にZDDのコピーを保持し、各イテレーションでサンプルした集合を取り除きます。
+
+.. code-block:: cpp
+
+   ZDD zdd = ...;
+   std::mt19937 rng(42);  // 乱数生成器
+
+   // ランダム順で列挙（重複なし）
+   for (auto it = zdd.random_begin(rng); it != zdd.random_end(); ++it) {
+       std::set<bddvar> s = *it;
+       // sはランダムに選ばれた集合
+   }
+
+ZDDインデックス
+---------------
+
+ZDDの効率的なアクセスのためのインデックスデータ構造です。
+
+ZDDIndexData
+~~~~~~~~~~~~
+
+.. doxygenstruct:: sbdd2::ZDDIndexData
+   :members:
+
+各ノードから1終端までの経路数をdoubleで格納します。2^53までの精度で正確な値を保持できます。
+
+**メンバ変数**:
+
+* ``level_nodes`` - レベルごとのノードリスト
+* ``node_to_idx`` - ノードからレベル内インデックスへのマッピング
+* ``count_cache`` - ノードから経路数へのマッピング
+* ``height`` - ZDDの高さ（ルートノードのレベル）
+
+ZDDExactIndexData（GMP版）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+各ノードから1終端までの経路数をmpz_class（GMP任意精度整数）で格納します。
+
+**メンバ変数**:
+
+* ``level_nodes`` - レベルごとのノードリスト
+* ``node_to_idx`` - ノードからレベル内インデックスへのマッピング
+* ``count_cache`` - ノードから経路数へのマッピング（mpz_class型）
+* ``height`` - ZDDの高さ
+
+.. note::
+   ``ZDDExactIndexData`` は ``SBDD2_HAS_GMP`` が定義されている場合のみ使用可能です。
+   GMPがインストールされていない環境ではコンパイルされません。
+
+インデックスの使用
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 10; ++i) mgr.new_var();
+
+   ZDD zdd = get_power_set(mgr, 10);
+
+   // インデックスを構築
+   zdd.build_index();
+
+   // インデックスを使った高速カウント
+   double count = zdd.indexed_count();
+
+   // 辞書順でi番目の集合を取得（O(n)）
+   auto set5 = zdd.get_set(5);
+
+   // 集合の辞書順での順位を取得
+   std::vector<bddvar> query = {1, 3, 5};
+   uint64_t order = zdd.order_of(query);
+
+ハッシュ関数
+~~~~~~~~~~~~
+
+.. doxygenstruct:: sbdd2::ArcHash
+   :members:
+
+.. doxygenstruct:: sbdd2::ArcEqual
+   :members:
+
+これらの構造体はZDDインデックス内でArcをハッシュテーブルのキーとして使用するために定義されています。
+
+イテレータの使用例
+------------------
+
+辞書順アクセス
+~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 5; ++i) mgr.new_var();
+
+   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2) +
+                ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));
+   // family = {{1}, {2}, {1,2}}
+
+   std::cout << "辞書順:" << std::endl;
+   for (auto it = family.dict_begin(); it != family.dict_end(); ++it) {
+       std::set<bddvar> s = *it;
+       std::cout << "  {";
+       for (auto e : s) std::cout << e << " ";
+       std::cout << "}" << std::endl;
+   }
+   // 出力:
+   //   {1 }
+   //   {1 2 }
+   //   {2 }
+
+重み順アクセス
+~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 5; ++i) mgr.new_var();
+
+   ZDD family = get_power_set(mgr, 5);
+
+   // 重みを設定
+   std::vector<int64_t> weights = {0, 10, 20, 5, 15, 25};
+   // weights[i] = 変数iの重み
+
+   std::cout << "重み昇順で最初の5つ:" << std::endl;
+   int count = 0;
+   for (auto it = family.weight_min_begin(weights);
+        it != family.weight_min_end() && count < 5;
+        ++it, ++count) {
+       std::set<bddvar> s = *it;
+       int64_t w = 0;
+       for (auto e : s) w += weights[e];
+       std::cout << "  重み=" << w << ": {";
+       for (auto e : s) std::cout << e << " ";
+       std::cout << "}" << std::endl;
+   }
+
+ランダムサンプリング
+~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 10; ++i) mgr.new_var();
+
+   ZDD family = get_power_set(mgr, 10);
+
+   std::mt19937 rng(42);
+
+   // 10個のランダムな集合を取得（重複なし）
+   std::cout << "ランダムに10個:" << std::endl;
+   int count = 0;
+   for (auto it = family.random_begin(rng);
+        it != family.random_end() && count < 10;
+        ++it, ++count) {
+       std::set<bddvar> s = *it;
+       std::cout << "  {";
+       for (auto e : s) std::cout << e << " ";
+       std::cout << "}" << std::endl;
+   }
+
+インデックスを使った操作
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 20; ++i) mgr.new_var();
+
+   ZDD family = get_power_set_with_card(mgr, 20, 5);  // 20C5 = 15504 集合
+
+   // インデックスを構築（一度だけ）
+   family.build_index();
+
+   // 辞書順で1000番目の集合を取得（O(変数数)）
+   auto set1000 = family.get_set(1000);
+
+   // その集合の順位を確認
+   uint64_t order = family.order_of(set1000);
+   // order == 1000
+
+   // 高速カウント
+   double count = family.indexed_count();
+   // count == 15504.0

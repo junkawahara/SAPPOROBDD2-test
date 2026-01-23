@@ -15,6 +15,65 @@ Arc構造体
    :members:
    :undoc-members:
 
+**ビットレイアウト（44ビット）**:
+
+* bit 0: 否定フラグ
+* bit 1: 定数フラグ（終端ノードかどうか）
+* bits 2-43: ノードインデックス（42ビット）
+
+**主要メソッド**:
+
+* ``terminal(bool value)`` - 終端ノードへのアークを作成
+* ``node(bddindex index, bool negated = false)`` - 通常ノードへのアークを作成
+* ``is_negated()`` - 否定フラグを取得
+* ``is_constant()`` - 定数（終端）フラグを取得
+* ``index()`` - ノードインデックスを取得
+* ``terminal_value()`` - 終端値を取得
+* ``negated()`` - 否定したアークを返す
+
+**プレースホルダ機能（TdZdd移植用）**:
+
+トップダウンDD構築時に、子ノードがまだ作成されていない場合に使用します。
+
+* ``placeholder(int level, uint64_t col)`` - プレースホルダArcを作成
+* ``is_placeholder()`` - プレースホルダかどうか判定
+* ``placeholder_level()`` - プレースホルダのレベルを取得
+* ``placeholder_col()`` - プレースホルダの列番号を取得
+
+**定数**:
+
+.. cpp:var:: const Arc sbdd2::ARC_TERMINAL_0
+
+   終端0を指すアーク定数
+
+.. cpp:var:: const Arc sbdd2::ARC_TERMINAL_1
+
+   終端1を指すアーク定数
+
+**使用例**:
+
+.. code-block:: cpp
+
+   // 終端ノード0へのアーク
+   Arc zero = Arc::terminal(false);
+
+   // 終端ノード1へのアーク
+   Arc one = Arc::terminal(true);
+
+   // ノードインデックス100への通常アーク
+   Arc node_arc = Arc::node(100);
+
+   // ノードインデックス100への否定アーク
+   Arc neg_arc = Arc::node(100, true);
+
+   // アークの否定
+   Arc neg = node_arc.negated();  // 否定フラグを反転
+
+   // 定数の使用
+   if (arc == ARC_TERMINAL_0) {
+       // 0終端
+   }
+
 DDNode
 ------
 
@@ -92,5 +151,10 @@ CacheEntry
 定数
 ----
 
-.. doxygendefine:: DEFAULT_NODE_TABLE_SIZE
-.. doxygendefine:: DEFAULT_CACHE_SIZE
+.. cpp:var:: constexpr std::size_t sbdd2::DEFAULT_NODE_TABLE_SIZE = 1 << 20
+
+   デフォルトノードテーブルサイズ（1Mノード = 約100万ノード）
+
+.. cpp:var:: constexpr std::size_t sbdd2::DEFAULT_CACHE_SIZE = 1 << 18
+
+   デフォルトキャッシュサイズ（256Kエントリ）

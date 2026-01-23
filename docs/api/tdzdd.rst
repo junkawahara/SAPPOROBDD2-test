@@ -27,6 +27,30 @@ SAPPOROBDD 2.0は、TdZdd（岩下博明氏開発のフロンティア法ライ�
    using namespace sbdd2;
    using namespace sbdd2::tdzdd;
 
+Specベースクラス
+----------------
+
+DdSpecBase
+~~~~~~~~~~
+
+全てのSpecクラスの基底クラスです。直接使用することはありません。
+
+.. code-block:: cpp
+
+   template<typename S, int AR>
+   class DdSpecBase {
+   public:
+       static int const ARITY = AR;  // ノードのアリティ（分岐数）
+       S& entity();                   // 派生クラスの参照を取得
+       S const& entity() const;
+       void printLevel(std::ostream& os, int level) const;
+   };
+
+**テンプレートパラメータ**:
+
+* ``S`` - 派生クラス（CRTP）
+* ``AR`` - ノードのアリティ（通常2）
+
 Specクラスの作成
 ----------------
 
@@ -97,6 +121,109 @@ StatelessDdSpec
            return level - 1;
        }
    };
+
+PodArrayDdSpec
+~~~~~~~~~~~~~~
+
+POD（Plain Old Data）配列を状態として使用するSpecクラスの基底クラスです。
+
+.. code-block:: cpp
+
+   // 配列状態を使用するSpec
+   class ArrayStateSpec : public PodArrayDdSpec<ArrayStateSpec, int, 2> {
+       int n_;
+       int capacity_;
+
+   public:
+       ArrayStateSpec(int n, int capacity) : n_(n), capacity_(capacity) {
+           setArraySize(capacity);  // 配列サイズを設定（コンストラクタで必須）
+       }
+
+       int getRoot(int* state) {
+           for (int i = 0; i < capacity_; ++i) state[i] = 0;
+           return n_;
+       }
+
+       int getChild(int* state, int level, int value) {
+           state[level - 1] = value;
+           --level;
+           if (level == 0) {
+               // 終端判定
+               return check_state(state) ? -1 : 0;
+           }
+           return level;
+       }
+
+   private:
+       bool check_state(int* state) const {
+           // 状態の検証
+           return true;
+       }
+   };
+
+**テンプレートパラメータ**:
+
+* ``S`` - 派生クラス
+* ``T`` - 配列要素の型（POD型であること）
+* ``AR`` - アリティ（デフォルト: 2）
+
+**必須メソッド**:
+
+* ``setArraySize(int n)`` - 配列サイズを設定（コンストラクタで呼び出す）
+* ``getRoot(T* state)`` - ルートノードの初期化
+* ``getChild(T* state, int level, int value)`` - 子ノードへの遷移
+
+HybridDdSpec
+~~~~~~~~~~~~
+
+スカラー状態とPOD配列状態の両方を使用するSpecクラスの基底クラスです。
+
+.. code-block:: cpp
+
+   // スカラーと配列の両方を状態として使用するSpec
+   class HybridStateSpec
+       : public HybridDdSpec<HybridStateSpec, int, int, 2> {
+       // S_State = int (スカラー), A_State = int (配列要素)
+       int n_;
+       int array_size_;
+
+   public:
+       HybridStateSpec(int n, int array_size) : n_(n), array_size_(array_size) {
+           setArraySize(array_size);  // 配列サイズを設定
+       }
+
+       int getRoot(int& scalar, int* array) {
+           scalar = 0;
+           for (int i = 0; i < array_size_; ++i) array[i] = 0;
+           return n_;
+       }
+
+       int getChild(int& scalar, int* array, int level, int value) {
+           scalar += value;
+           array[level - 1] = value;
+           --level;
+           if (level == 0) {
+               return (scalar == target_) ? -1 : 0;
+           }
+           return level;
+       }
+   };
+
+**テンプレートパラメータ**:
+
+* ``S`` - 派生クラス
+* ``TS`` - スカラー状態の型
+* ``TA`` - 配列要素の型（POD型であること）
+* ``AR`` - アリティ（デフォルト: 2）
+
+**必須メソッド**:
+
+* ``setArraySize(int n)`` - 配列サイズを設定
+* ``getRoot(TS& scalar, TA* array)`` - ルートノードの初期化
+* ``getChild(TS& scalar, TA* array, int level, int value)`` - 子ノードへの遷移
+
+.. note::
+   ``PodHybridDdSpec`` は ``HybridDdSpec`` の別名として後方互換性のために提供されています。
 
 BDD/ZDDの構築
 -------------
@@ -408,6 +535,110 @@ ARITYが異なるSpec同士の演算はエラーになります。
    } catch (DDArgumentException& e) {
        // "VarArity spec operations require both specs to have the same ARITY"
    }
+
+評価クラス（DdEval）
+--------------------
+
+DdEvalは、Specで定義された決定図を評価するためのクラスです。
+トップダウンで走査しながらボトムアップで値を計算します。
+
+DdEval
+~~~~~~
+
+.. code-block:: cpp
+
+   template<typename E, typename T, typename R = T, int ARITY = 2>
+   class DdEval;
+
+**テンプレートパラメータ**:
+
+* ``E`` - 派生クラス（CRTP）
+* ``T`` - 各ノードの作業領域の型
+* ``R`` - 戻り値の型（デフォルトはTと同じ）
+* ``ARITY`` - DDのアリティ（デフォルト: 2）
+
+**必須メソッド**:
+
+* ``evalTerminal(T& v, int id)`` - 終端ノードの評価
+* ``evalNode(T& v, int level, DdValues<T,ARITY> const& values)`` - 内部ノードの評価
+
+**オプションメソッド**:
+
+* ``showMessages()`` - メッセージ表示の設定
+* ``initialize(int level)`` - 初期化処理
+* ``getValue(T const& work)`` - 最終結果の取得
+* ``destructLevel(int i)`` - レベル破棄処理
+
+DdValues
+~~~~~~~~
+
+子ノードの値とレベルを保持するコンテナです。
+
+.. code-block:: cpp
+
+   template<typename T, int ARITY>
+   class DdValues {
+   public:
+       T const& get(int b) const;      // b番目の子の値を取得
+       int getLevel(int b) const;      // b番目の子のレベルを取得
+   };
+
+CardinalityEval
+~~~~~~~~~~~~~~~
+
+ZDDの集合数（カーディナリティ）を計算する組み込みの評価クラスです。
+
+.. code-block:: cpp
+
+   class CardinalityEval : public DdEval<CardinalityEval, double, double, 2> {
+   public:
+       void evalTerminal(double& v, int id);
+       void evalNode(double& v, int level, DdValues<double, 2> const& values);
+   };
+
+evaluate_spec関数
+~~~~~~~~~~~~~~~~~
+
+Specを評価器で評価します。
+
+.. code-block:: cpp
+
+   template<typename SPEC, typename E, typename T, typename R>
+   R evaluate_spec(SPEC& spec, DdEval<E, T, R, 2>& eval);
+
+使用例
+~~~~~~
+
+.. code-block:: cpp
+
+   // カスタム評価器: 最大パス長を計算
+   class MaxPathLengthEval : public DdEval<MaxPathLengthEval, int, int, 2> {
+   public:
+       void evalTerminal(int& v, int id) {
+           v = (id == 1) ? 0 : -1000000;  // 1-terminal = 0, 0-terminal = -∞
+       }
+
+       void evalNode(int& v, int level, DdValues<int, 2> const& values) {
+           (void)level;
+           int val0 = values.get(0);  // 0枝の値
+           int val1 = values.get(1);  // 1枝の値（選択時 +1）
+           v = std::max(val0, val1 + 1);
+       }
+   };
+
+   // 使用
+   Combination spec(5, 3);
+   MaxPathLengthEval eval;
+   int maxLen = evaluate_spec(spec, eval);
+   // maxLen == 3 (C(5,3)の最大パス長)
+
+.. code-block:: cpp
+
+   // 組み込みのCardinalityEvalを使用
+   Combination spec(10, 5);
+   CardinalityEval eval;
+   double count = evaluate_spec(spec, eval);
+   // count == 252.0 (C(10,5) = 252)
 
 参考文献
 --------

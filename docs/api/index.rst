@@ -15,6 +15,7 @@ API リファレンス
    extended
    utility
    tdzdd
+   exception
 
 クラス一覧
 ----------
@@ -52,6 +53,15 @@ API リファレンス
 * :cpp:class:`sbdd2::GBase` - グラフベース（パス/サイクル列挙）
 * :cpp:class:`sbdd2::BDDCT` - コストテーブル
 
+例外クラス
+~~~~~~~~~~
+
+* :cpp:class:`sbdd2::DDException` - DD操作の基本例外
+* :cpp:class:`sbdd2::DDMemoryException` - メモリ割り当て失敗
+* :cpp:class:`sbdd2::DDArgumentException` - 不正な引数
+* :cpp:class:`sbdd2::DDIOException` - I/Oエラー
+* :cpp:class:`sbdd2::DDIncompatibleException` - 非互換なDD型またはマネージャー
+
 ヘルパー関数
 ~~~~~~~~~~~~
 
@@ -63,6 +73,21 @@ API リファレンス
 * ``weight_*`` - 重みフィルタ関数群
 * ``get_uniformly_random_zdd`` - ランダムZDD生成
 * ``get_random_zdd_with_card`` - 指定濃度のランダムZDD
+
+イテレータクラス
+~~~~~~~~~~~~~~~~
+
+* :cpp:class:`sbdd2::DictIterator` - 辞書順イテレータ
+* :cpp:class:`sbdd2::WeightIterator` - 重み順イテレータ
+* :cpp:class:`sbdd2::RandomIterator` - ランダム順イテレータ
+
+I/O関連
+~~~~~~~
+
+* ``DDFileFormat`` - ファイル形式列挙型
+* ``ExportOptions`` - エクスポートオプション
+* ``ImportOptions`` - インポートオプション
+* ``SvgExportOptions`` - SVGエクスポートオプション
 
 TdZdd互換インターフェース
 ~~~~~~~~~~~~~~~~~~~~~~~~~
