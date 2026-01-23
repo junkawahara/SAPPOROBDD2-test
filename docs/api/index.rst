@@ -69,9 +69,21 @@ TdZdd互換インターフェース
 
 * ``DdSpec`` - Specベースクラス（状態あり）
 * ``StatelessDdSpec`` - Specベースクラス（状態なし）
+* ``HybridDdSpec`` - Specベースクラス（スカラー + 配列状態）
 * ``build_zdd`` / ``build_bdd`` - シングルスレッドビルダー
 * ``build_zdd_mp`` / ``build_bdd_mp`` - 並列ビルダー（OpenMP）
+* ``build_mvzdd`` / ``build_mvbdd`` - MVDD用ビルダー（ARITY >= 3）
 * ``zddUnion`` / ``zddIntersection`` - Spec演算子
+
+VarArity Spec（実行時ARITY指定）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* ``VarArityHybridDdSpec`` - 実行時ARITYのHybridSpec
+* ``VarArityDdSpec`` - 実行時ARITYのスカラー状態Spec
+* ``VarArityStatelessDdSpec`` - 実行時ARITYの状態なしSpec
+* ``build_mvzdd_va`` / ``build_mvbdd_va`` - VarArity用ビルダー
+* ``build_mvzdd_va_mp`` / ``build_mvbdd_va_mp`` - VarArity用並列ビルダー
+* ``zddUnionVA`` / ``zddIntersectionVA`` - VarArity用Spec演算子
 
 厳密カウント（GMP）
 ~~~~~~~~~~~~~~~~~~~
