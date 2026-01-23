@@ -58,7 +58,13 @@ ZDD ZDD::onset(bddvar v) const {
     }
 
     bddvar top = manager_->node_at(arc_.index()).var();
-    if (top > v) {
+    bddvar top_lev = manager_->lev_of_var(top);
+    bddvar v_lev = manager_->lev_of_var(v);
+
+    // SAPPOROBDD2 convention: smaller level = closer to root
+    // If top's level > v's level, v should have appeared earlier (closer to root)
+    // but it didn't, so v is not in this subtree
+    if (top_lev > v_lev) {
         return ZDD::empty(*manager_);
     }
     if (top == v) {
@@ -84,7 +90,13 @@ ZDD ZDD::offset(bddvar v) const {
     }
 
     bddvar top = manager_->node_at(arc_.index()).var();
-    if (top > v) {
+    bddvar top_lev = manager_->lev_of_var(top);
+    bddvar v_lev = manager_->lev_of_var(v);
+
+    // SAPPOROBDD2 convention: smaller level = closer to root
+    // If top's level > v's level, v should have appeared earlier but didn't
+    // So v is not in this subtree, meaning all sets here don't contain v
+    if (top_lev > v_lev) {
         return *this;
     }
     if (top == v) {
@@ -123,10 +135,14 @@ ZDD ZDD::change(bddvar v) const {
     }
 
     bddvar top = manager_->node_at(arc_.index()).var();
+    bddvar top_lev = manager_->lev_of_var(top);
+    bddvar v_lev = manager_->lev_of_var(v);
     const DDNode& node = manager_->node_at(arc_.index());
 
-    if (top > v) {
-        // v is not present, add v to all sets
+    // SAPPOROBDD2 convention: smaller level = closer to root
+    // If v has smaller level than top, v should be the new root
+    // Since v was skipped, all sets don't contain v; toggling adds v to all sets
+    if (top_lev > v_lev) {
         Arc result = manager_->get_or_create_node_zdd(v, ARC_TERMINAL_0, arc_, true);
         return ZDD(manager_, result);
     }
@@ -197,15 +213,25 @@ static Arc zdd_union(DDManager* mgr, Arc f, Arc g) {
     return result;
 }
 
+// Helper: check if ZDD contains the empty set by following 0-branches
+static Arc zdd_contains_empty_set(DDManager* mgr, Arc f) {
+    while (!f.is_constant()) {
+        const DDNode& node = mgr->node_at(f.index());
+        f = node.arc0();  // Follow 0-branch
+    }
+    return f;  // ARC_TERMINAL_1 if {} ∈ F, ARC_TERMINAL_0 otherwise
+}
+
 // Internal intersection function
 static Arc zdd_intersect(DDManager* mgr, Arc f, Arc g) {
     if (f == ARC_TERMINAL_0) return ARC_TERMINAL_0;
     if (g == ARC_TERMINAL_0) return ARC_TERMINAL_0;
     if (f == g) return f;
 
-    // Handle terminal 1 (base/empty set)
-    if (f == ARC_TERMINAL_1) return g;
-    if (g == ARC_TERMINAL_1) return f;
+    // Handle terminal 1 (base set {{}})
+    // {{}} ∩ G = {{}} if {} ∈ G, else empty
+    if (f == ARC_TERMINAL_1) return zdd_contains_empty_set(mgr, g);
+    if (g == ARC_TERMINAL_1) return zdd_contains_empty_set(mgr, f);
 
     if (f.data > g.data) std::swap(f, g);
 
@@ -320,45 +346,70 @@ ZDD ZDD::operator*(const ZDD& other) const {
 }
 
 // Quotient (division)
+// Algorithm based on SAPPOROBDD++: F / G = {S | S ∪ T ∈ F for all T ∈ G}
 static Arc zdd_quotient(DDManager* mgr, Arc f, Arc g) {
+    // g = 0 (empty family) is error
     if (g == ARC_TERMINAL_0) {
         throw DDArgumentException("Division by empty set");
     }
+    // f = 0 => 0 / g = 0
     if (f == ARC_TERMINAL_0) return ARC_TERMINAL_0;
-    if (g == ARC_TERMINAL_1) return f;  // f / base = f
-    if (f == g) return ARC_TERMINAL_1;  // f / f = base
+    // g = 1 (base, {{}}) => f / {{}} = f
+    if (g == ARC_TERMINAL_1) return f;
+    // f == g => f / f = {{}}
+    if (f == g) return ARC_TERMINAL_1;
 
     Arc result;
     if (mgr->cache_lookup(CacheOp::QUOTIENT, f, g, result)) {
         return result;
     }
 
+    // Get g's top variable (divisor's top)
     bddvar g_var = mgr->node_at(g.index()).var();
     bddvar g_lev = mgr->lev_of_var(g_var);
-    const DDNode& g_node = mgr->node_at(g.index());
 
-    // Recursive quotient
-    Arc f_offset = f;
-    Arc f_onset = ARC_TERMINAL_0;
-
-    if (!f.is_constant()) {
-        bddvar f_var = mgr->node_at(f.index()).var();
-        bddvar f_lev = mgr->lev_of_var(f_var);
-        if (f_var == g_var) {
-            const DDNode& f_node = mgr->node_at(f.index());
-            f_offset = f_node.arc0();
-            f_onset = f_node.arc1();
-        } else if (f_lev < g_lev) {
-            // f has variable that g doesn't have (f_var is above g_var)
-            result = ARC_TERMINAL_0;
-            mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
-            return result;
-        }
+    // Check f's level
+    if (f == ARC_TERMINAL_1) {
+        // f = {{}} (base), g has non-empty sets
+        // {{}} / G = 0 when G contains any non-empty set
+        result = ARC_TERMINAL_0;
+        mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
+        return result;
     }
 
-    Arc q0 = zdd_quotient(mgr, f_offset, g_node.arc0());
-    Arc q1 = zdd_quotient(mgr, f_onset, g_node.arc1());
-    result = zdd_intersect(mgr, q0, q1);
+    bddvar f_var = mgr->node_at(f.index()).var();
+    bddvar f_lev = mgr->lev_of_var(f_var);
+
+    // SAPPOROBDD2 convention: smaller level = closer to root
+    // If f's level is larger (farther from root) than g's level,
+    // f doesn't contain sets with g's top variable at the right position
+    if (f_lev > g_lev) {
+        result = ARC_TERMINAL_0;
+        mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
+        return result;
+    }
+
+    // Use ZDD wrapper for onset/offset operations
+    ZDD f_zdd(mgr, f);
+    ZDD g_zdd(mgr, g);
+
+    // q = f.onset(g_var) / g.onset(g_var)
+    // onset: sets containing g_var, with g_var REMOVED
+    // (SAPPOROBDD++ OnSet0 returns hi-branch directly, which removes the variable)
+    ZDD f_onset = f_zdd.onset(g_var);
+    ZDD g_onset = g_zdd.onset(g_var);
+
+    result = zdd_quotient(mgr, f_onset.arc(), g_onset.arc());
+
+    if (result != ARC_TERMINAL_0) {
+        // g.offset(g_var): sets in g NOT containing g_var
+        ZDD g_offset = g_zdd.offset(g_var);
+        if (g_offset.arc() != ARC_TERMINAL_0) {
+            ZDD f_offset = f_zdd.offset(g_var);
+            Arc q2 = zdd_quotient(mgr, f_offset.arc(), g_offset.arc());
+            result = zdd_intersect(mgr, result, q2);
+        }
+    }
 
     mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
     return result;
@@ -423,6 +474,7 @@ static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
     bddvar g_var = mgr->node_at(g.index()).var();
     bddvar f_lev = mgr->lev_of_var(f_var);
     bddvar g_lev = mgr->lev_of_var(g_var);
+    // Smaller level = closer to root (SAPPOROBDD2 convention)
     bddvar top_var = (f_lev <= g_lev) ? f_var : g_var;
 
     Arc f0, f1, g0, g1;
