@@ -224,6 +224,191 @@ zddUnreduction
    HamiltonPath spec(graph);
    ZDD paths = build_zdd(mgr, spec);
 
+VarArity Spec（可変Arity）
+--------------------------
+
+ARITY（分岐数）を実行時に指定できるSpecクラスです。
+通常の ``HybridDdSpec<S, TS, TA, AR>`` は ARITY をコンパイル時テンプレート引数として
+指定しますが、``VarArityHybridDdSpec<S, TS, TA>`` は ``setArity()`` で実行時に指定します。
+
+ヘッダファイル
+~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
+   #include "sbdd2/tdzdd/VarArityDdSpec.hpp"
+
+VarArityHybridDdSpec
+~~~~~~~~~~~~~~~~~~~~
+
+スカラー状態と配列状態を持つVarArity版Specクラスです。
+
+.. code-block:: cpp
+
+   // 可変Arityの合計Spec
+   class VarAritySumSpec
+       : public VarArityHybridDdSpec<VarAritySumSpec, int, int> {
+       int n_;       // 変数の数
+       int target_;  // 目標合計
+
+   public:
+       VarAritySumSpec(int arity, int n, int target) : n_(n), target_(target) {
+           setArity(arity);     // ARITYを実行時に設定（必須）
+           setArraySize(1);     // 配列サイズを設定
+       }
+
+       int getRoot(int& s, int* a) {
+           s = 0;
+           a[0] = 0;
+           return n_;
+       }
+
+       int getChild(int& s, int* a, int level, int value) {
+           (void)a;
+           s += value;  // value は 0 から getArity()-1 まで
+           --level;
+
+           if (level == 0) {
+               return (s == target_) ? -1 : 0;
+           }
+
+           // 枝刈り
+           int maxRemaining = level * (getArity() - 1);
+           if (s > target_) return 0;
+           if (s + maxRemaining < target_) return 0;
+
+           return level;
+       }
+   };
+
+VarArityStatelessDdSpec
+~~~~~~~~~~~~~~~~~~~~~~~
+
+状態を持たないVarArity版Specクラスです。
+
+.. code-block:: cpp
+
+   class VarArityPowerSetSpec
+       : public VarArityStatelessDdSpec<VarArityPowerSetSpec> {
+       int n_;
+
+   public:
+       VarArityPowerSetSpec(int arity, int n) : n_(n) {
+           setArity(arity);  // ARITYを実行時に設定
+       }
+
+       int getRoot() const {
+           return n_;
+       }
+
+       int getChild(int level, int value) const {
+           (void)value;
+           if (level == 1) return -1;
+           return level - 1;
+       }
+   };
+
+VarArityDdSpec
+~~~~~~~~~~~~~~
+
+スカラー状態のみを持つVarArity版Specクラスです。
+
+.. code-block:: cpp
+
+   class VarArityCombination
+       : public VarArityDdSpec<VarArityCombination, int> {
+       int n_, k_;
+
+   public:
+       VarArityCombination(int arity, int n, int k) : n_(n), k_(k) {
+           setArity(arity);
+       }
+
+       int getRoot(int& state) const {
+           state = 0;
+           return n_;
+       }
+
+       int getChild(int& state, int level, int value) const {
+           state += value;
+           --level;
+           if (level == 0) return (state == k_) ? -1 : 0;
+           return level;
+       }
+   };
+
+VarArity版ビルダー
+~~~~~~~~~~~~~~~~~~
+
+VarAritySpec専用のビルダー関数です。
+
+.. code-block:: cpp
+
+   DDManager mgr;
+
+   // シングルスレッド版
+   VarAritySumSpec spec(5, 3, 6);  // ARITY=5, 3変数, 目標合計=6
+   MVZDD zdd_result = build_mvzdd_va(mgr, spec);
+   MVBDD bdd_result = build_mvbdd_va(mgr, spec);
+
+   // 並列版（OpenMP）
+   MVZDD zdd_mp = build_mvzdd_va_mp(mgr, spec);
+   MVBDD bdd_mp = build_mvbdd_va_mp(mgr, spec);
+
+ARITY制約
+~~~~~~~~~
+
+* **範囲**: 1 ～ 100
+* **設定**: コンストラクタ内で ``setArity()`` を呼び出す
+* **エラー**: 範囲外の場合は ``DDArgumentException`` をスロー
+
+.. code-block:: cpp
+
+   // エラー例
+   try {
+       VarAritySumSpec spec(0, 2, 2);   // ARITY=0 は無効
+   } catch (DDArgumentException& e) {
+       // "ARITY must be between 1 and 100"
+   }
+
+   try {
+       VarAritySumSpec spec(101, 2, 2); // ARITY=101 は無効
+   } catch (DDArgumentException& e) {
+       // "ARITY must be between 1 and 100"
+   }
+
+VarArity版Spec演算
+~~~~~~~~~~~~~~~~~~
+
+VarArity Spec同士の演算です。両方のSpecが同じARITYを持つ必要があります。
+
+.. code-block:: cpp
+
+   VarAritySumSpec spec1(3, 2, 1);  // ARITY=3, sum=1
+   VarAritySumSpec spec2(3, 2, 2);  // ARITY=3, sum=2
+
+   // 和集合
+   auto unionSpec = zddUnionVA(spec1, spec2);
+   MVZDD result = build_mvzdd_va(mgr, unionSpec);
+
+   // 積集合
+   auto intersectSpec = zddIntersectionVA(spec1, spec2);
+   MVZDD result2 = build_mvzdd_va(mgr, intersectSpec);
+
+ARITYが異なるSpec同士の演算はエラーになります。
+
+.. code-block:: cpp
+
+   VarAritySumSpec spec3(3, 2, 2);  // ARITY=3
+   VarAritySumSpec spec4(4, 2, 2);  // ARITY=4
+
+   // エラー: ARITY不一致
+   try {
+       auto unionSpec = zddUnionVA(spec3, spec4);
+   } catch (DDArgumentException& e) {
+       // "VarArity spec operations require both specs to have the same ARITY"
+   }
+
 参考文献
 --------
 

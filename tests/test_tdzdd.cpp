@@ -7,10 +7,12 @@
 #include "sbdd2/mvzdd.hpp"
 #include "sbdd2/mvbdd.hpp"
 #include "sbdd2/tdzdd/DdSpec.hpp"
+#include "sbdd2/tdzdd/VarArityDdSpec.hpp"
 #include "sbdd2/tdzdd/Sbdd2Builder.hpp"
 #include "sbdd2/tdzdd/Sbdd2BuilderMP.hpp"
 #include "sbdd2/tdzdd/DdSpecOp.hpp"
 #include "sbdd2/tdzdd/DdEval.hpp"
+#include "sbdd2/exception.hpp"
 
 using namespace sbdd2;
 using namespace sbdd2::tdzdd;
@@ -471,4 +473,308 @@ TEST_F(TdZddTest, MVBDDTernaryEdgeCases) {
         EXPECT_FALSE(result.evaluate({0, 0}));
         EXPECT_FALSE(result.evaluate({1, 2}));
     }
+}
+
+// ========================================
+// Tests for VarArity Specs (runtime ARITY)
+// ========================================
+
+// VarArity Hybrid spec: sum with variable arity
+class VarAritySumSpec
+    : public VarArityHybridDdSpec<VarAritySumSpec, int, int> {
+    int n_;       // number of variables
+    int target_;  // target sum
+
+public:
+    VarAritySumSpec(int arity, int n, int target) : n_(n), target_(target) {
+        setArity(arity);
+        setArraySize(1);  // minimal array
+    }
+
+    int getRoot(int& s, int* a) {
+        s = 0;  // current sum
+        a[0] = 0;
+        return n_;
+    }
+
+    int getChild(int& s, int* a, int level, int value) {
+        (void)a;  // unused
+        s += value;
+        --level;
+
+        if (level == 0) {
+            return (s == target_) ? -1 : 0;
+        }
+
+        // Pruning
+        int maxRemaining = level * (getArity() - 1);
+        if (s > target_) return 0;
+        if (s + maxRemaining < target_) return 0;
+
+        return level;
+    }
+};
+
+// VarArity stateless spec: all combinations
+class VarArityPowerSetSpec
+    : public VarArityStatelessDdSpec<VarArityPowerSetSpec> {
+    int n_;
+
+public:
+    VarArityPowerSetSpec(int arity, int n) : n_(n) {
+        setArity(arity);
+    }
+
+    int getRoot() const {
+        return n_;
+    }
+
+    int getChild(int level, int value) const {
+        (void)value;
+        if (level == 1) return -1;
+        return level - 1;
+    }
+};
+
+// VarArity scalar spec
+class VarArityCombination
+    : public VarArityDdSpec<VarArityCombination, int> {
+    int n_;
+    int k_;
+
+public:
+    VarArityCombination(int arity, int n, int k) : n_(n), k_(k) {
+        setArity(arity);
+    }
+
+    int getRoot(int& state) const {
+        state = 0;
+        return n_;
+    }
+
+    int getChild(int& state, int level, int value) const {
+        state += value;
+        --level;
+
+        if (level == 0) {
+            return (state == k_) ? -1 : 0;
+        }
+
+        // Pruning for binary case
+        if (getArity() == 2) {
+            if (state > k_) return 0;
+            if (state + level < k_) return 0;
+        }
+
+        return level;
+    }
+};
+
+// ========================================
+// VarArity MVZDD Tests
+// ========================================
+
+TEST_F(TdZddTest, VarArityMVZDDTernaryBasic) {
+    // Same as TernarySum but with VarArity spec
+    // ARITY = 3, 2 variables, target sum = 2
+    // Solutions: (0,2), (1,1), (2,0) = 3 solutions
+    VarAritySumSpec spec(3, 2, 2);
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 3.0);
+}
+
+TEST_F(TdZddTest, VarArityMVZDDQuaternary) {
+    // ARITY = 4, 2 variables, all combinations
+    // Total: 4^2 = 16
+    VarArityPowerSetSpec spec(4, 2);
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 4);
+    EXPECT_DOUBLE_EQ(result.card(), 16.0);
+}
+
+TEST_F(TdZddTest, VarArityMVZDDQuinary) {
+    // ARITY = 5, 2 variables, all combinations
+    // Total: 5^2 = 25
+    VarArityPowerSetSpec spec(5, 2);
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 5);
+    EXPECT_DOUBLE_EQ(result.card(), 25.0);
+}
+
+TEST_F(TdZddTest, VarArityMVZDDArity2) {
+    // ARITY = 2 should work like binary ZDD
+    VarArityCombination spec(2, 5, 3);  // C(5,3) = 10
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 2);
+    EXPECT_DOUBLE_EQ(result.card(), 10.0);
+}
+
+TEST_F(TdZddTest, VarArityMVZDDArity2Minimum) {
+    // ARITY = 2 (minimum for MVZDD): binary case
+    // VarArity with ARITY = 2 should work like binary
+    VarAritySumSpec spec(2, 3, 2);  // sum = 2 with ARITY=2: (0,1,1), (1,0,1), (1,1,0) = 3 solutions
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 2);
+    EXPECT_DOUBLE_EQ(result.card(), 3.0);
+}
+
+TEST_F(TdZddTest, VarAritySpecArity1Allowed) {
+    // Note: ARITY = 1 is allowed for VarAritySpec itself,
+    // but MVZDD/MVBDD requires k >= 2
+    VarAritySumSpec spec(1, 3, 0);
+    EXPECT_EQ(spec.getArity(), 1);  // setArity(1) should work
+}
+
+TEST_F(TdZddTest, VarArityMVZDDEvaluate) {
+    // ARITY = 3, sum = 2
+    VarAritySumSpec spec(3, 2, 2);
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_TRUE(result.evaluate({0, 2}));
+    EXPECT_TRUE(result.evaluate({1, 1}));
+    EXPECT_TRUE(result.evaluate({2, 0}));
+    EXPECT_FALSE(result.evaluate({0, 0}));
+    EXPECT_FALSE(result.evaluate({2, 2}));
+}
+
+// ========================================
+// VarArity MVBDD Tests
+// ========================================
+
+TEST_F(TdZddTest, VarArityMVBDDTernaryBasic) {
+    VarAritySumSpec spec(3, 2, 2);
+    MVBDD result = build_mvbdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_TRUE(result.evaluate({0, 2}));
+    EXPECT_TRUE(result.evaluate({1, 1}));
+    EXPECT_TRUE(result.evaluate({2, 0}));
+    EXPECT_FALSE(result.evaluate({0, 0}));
+}
+
+TEST_F(TdZddTest, VarArityMVBDDQuaternary) {
+    VarArityPowerSetSpec spec(4, 2);
+    MVBDD result = build_mvbdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 4);
+    // All 16 combinations should evaluate to true
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            EXPECT_TRUE(result.evaluate({i, j}));
+        }
+    }
+}
+
+// ========================================
+// VarArity Error Tests
+// ========================================
+
+TEST_F(TdZddTest, VarArityInvalidArityZero) {
+    EXPECT_THROW({
+        VarAritySumSpec spec(0, 2, 2);  // ARITY = 0 is invalid
+    }, DDArgumentException);
+}
+
+TEST_F(TdZddTest, VarArityInvalidArityNegative) {
+    EXPECT_THROW({
+        VarAritySumSpec spec(-1, 2, 2);  // negative ARITY is invalid
+    }, DDArgumentException);
+}
+
+TEST_F(TdZddTest, VarArityInvalidArityTooLarge) {
+    EXPECT_THROW({
+        VarAritySumSpec spec(101, 2, 2);  // ARITY > 100 is invalid
+    }, DDArgumentException);
+}
+
+TEST_F(TdZddTest, VarArityMaxArity) {
+    // ARITY = 100 should work
+    VarArityPowerSetSpec spec(100, 1);  // 1 variable with 100 values = 100 paths
+    MVZDD result = build_mvzdd_va(mgr, spec);
+
+    EXPECT_EQ(result.k(), 100);
+    EXPECT_DOUBLE_EQ(result.card(), 100.0);
+}
+
+// ========================================
+// VarArity Parallel Builder Tests
+// ========================================
+
+TEST_F(TdZddTest, VarArityMVZDDParallel) {
+    VarAritySumSpec spec(3, 3, 3);  // 7 solutions (same as TernarySum(3,3))
+    MVZDD result = build_mvzdd_va_mp(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 7.0);
+}
+
+TEST_F(TdZddTest, VarArityMVBDDParallel) {
+    VarAritySumSpec spec(3, 2, 2);
+    MVBDD result = build_mvbdd_va_mp(mgr, spec);
+
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_TRUE(result.evaluate({0, 2}));
+    EXPECT_TRUE(result.evaluate({1, 1}));
+    EXPECT_TRUE(result.evaluate({2, 0}));
+}
+
+TEST_F(TdZddTest, VarArityParallelEquivalence) {
+    // Sequential and parallel should give the same result
+    VarAritySumSpec spec1(4, 3, 4);
+    VarAritySumSpec spec2(4, 3, 4);
+
+    MVZDD seqResult = build_mvzdd_va(mgr, spec1);
+    MVZDD parResult = build_mvzdd_va_mp(mgr, spec2);
+
+    EXPECT_DOUBLE_EQ(seqResult.card(), parResult.card());
+}
+
+// ========================================
+// VarArity Spec Operation Tests
+// ========================================
+
+TEST_F(TdZddTest, VarArityZddUnion) {
+    // Union of two VarArity specs with same ARITY
+    VarAritySumSpec spec1(3, 2, 1);  // sum = 1: (0,1), (1,0) = 2 solutions
+    VarAritySumSpec spec2(3, 2, 2);  // sum = 2: (0,2), (1,1), (2,0) = 3 solutions
+
+    auto unionSpec = zddUnionVA(spec1, spec2);
+    MVZDD result = build_mvzdd_va(mgr, unionSpec);
+
+    // No overlap, total = 2 + 3 = 5
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 5.0);
+}
+
+TEST_F(TdZddTest, VarArityZddIntersection) {
+    // Intersection of power set and specific sum
+    VarArityPowerSetSpec powerSpec(3, 2);  // all 9 combinations
+    VarAritySumSpec sumSpec(3, 2, 2);       // sum = 2: 3 solutions
+
+    auto intersectSpec = zddIntersectionVA(powerSpec, sumSpec);
+    MVZDD result = build_mvzdd_va(mgr, intersectSpec);
+
+    // Intersection = 3 (only the sum=2 solutions)
+    EXPECT_EQ(result.k(), 3);
+    EXPECT_DOUBLE_EQ(result.card(), 3.0);
+}
+
+TEST_F(TdZddTest, VarArityZddOpArityMismatch) {
+    // Operations with different arities should throw
+    VarAritySumSpec spec3(3, 2, 2);  // ARITY = 3
+    VarAritySumSpec spec4(4, 2, 2);  // ARITY = 4
+
+    EXPECT_THROW({
+        zddUnionVA(spec3, spec4);
+    }, DDArgumentException);
+
+    EXPECT_THROW({
+        zddIntersectionVA(spec3, spec4);
+    }, DDArgumentException);
 }
