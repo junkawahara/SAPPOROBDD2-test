@@ -59,11 +59,14 @@ struct ZDDIndexData {
     /// ノードから経路数へのマッピング
     std::unordered_map<Arc, double, ArcHash, ArcEqual> count_cache;
 
-    /// ZDDの高さ（ルートノードのレベル）
+    /// ZDDの高さ（ルートノードのレベル = 最高レベル）
     int height;
 
+    /// 最低レベル（終端に最も近いレベル）
+    int min_level;
+
     /// デフォルトコンストラクタ
-    ZDDIndexData() : height(0) {}
+    ZDDIndexData() : height(0), min_level(0) {}
 };
 
 #ifdef SBDD2_HAS_GMP
@@ -83,11 +86,14 @@ struct ZDDExactIndexData {
     /// ノードから経路数へのマッピング（GMP）
     std::unordered_map<Arc, mpz_class, ArcHash, ArcEqual> count_cache;
 
-    /// ZDDの高さ
+    /// ZDDの高さ（ルートノードのレベル = 最高レベル）
     int height;
 
+    /// 最低レベル（終端に最も近いレベル）
+    int min_level;
+
     /// デフォルトコンストラクタ
-    ZDDExactIndexData() : height(0) {}
+    ZDDExactIndexData() : height(0), min_level(0) {}
 };
 #endif
 

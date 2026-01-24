@@ -142,7 +142,7 @@ static Arc bdd_apply(DDManager* mgr, CacheOp op, Arc f, Arc g) {
     // Recursive case
     bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
     bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
+    bddvar top_var = mgr->var_of_top_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
@@ -261,7 +261,7 @@ static Arc bdd_ite(DDManager* mgr, Arc f, Arc t, Arc e) {
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar t_var = t.is_constant() ? BDDVAR_MAX : mgr->node_at(t.index()).var();
     bddvar e_var = e.is_constant() ? BDDVAR_MAX : mgr->node_at(e.index()).var();
-    bddvar top_var = mgr->var_of_min_lev(f_var, mgr->var_of_min_lev(t_var, e_var));
+    bddvar top_var = mgr->var_of_top_lev(f_var, mgr->var_of_top_lev(t_var, e_var));
 
     // Split
     Arc f0, f1, t0, t1, e0, e1;
@@ -315,7 +315,7 @@ static Arc bdd_restrict(DDManager* mgr, Arc f, bddvar v, bool value) {
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar v_lev = mgr->lev_of_var(v);
     bddvar f_lev = mgr->lev_of_var(f_var);
-    if (f_lev > v_lev) return f;  // f_var is below v in DD
+    if (f_lev < v_lev) return f;  // f_var is below v in DD (smaller level = further from root)
 
     const DDNode& node = mgr->node_at(f.index());
     Arc f0 = node.arc0();
@@ -329,7 +329,7 @@ static Arc bdd_restrict(DDManager* mgr, Arc f, bddvar v, bool value) {
         return value ? f1 : f0;
     }
 
-    // f_lev < v_lev (f_var is above v in DD)
+    // f_lev > v_lev (f_var is above v in DD, larger level = closer to root)
     Arc r0 = bdd_restrict(mgr, f0, v, value);
     Arc r1 = bdd_restrict(mgr, f1, v, value);
     return mgr->get_or_create_node_bdd(f_var, r0, r1, true);
@@ -378,7 +378,7 @@ static Arc bdd_compose(DDManager* mgr, Arc f, bddvar v, Arc g) {
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar v_lev = mgr->lev_of_var(v);
     bddvar f_lev = mgr->lev_of_var(f_var);
-    if (f_lev > v_lev) return f;  // f_var is below v in DD
+    if (f_lev < v_lev) return f;  // f_var is below v in DD (smaller level = further from root)
 
     const DDNode& node = mgr->node_at(f.index());
     Arc f0 = node.arc0();
@@ -391,6 +391,7 @@ static Arc bdd_compose(DDManager* mgr, Arc f, bddvar v, Arc g) {
     if (f_var == v) {
         result = bdd_ite(mgr, g, f1, f0);
     } else {
+        // f_lev > v_lev (f_var is above v, larger level = closer to root)
         Arc r0 = bdd_compose(mgr, f0, v, g);
         Arc r1 = bdd_compose(mgr, f1, v, g);
         result = mgr->get_or_create_node_bdd(f_var, r0, r1, true);
@@ -417,23 +418,27 @@ double BDD::card() const {
     }
 
     // Count with memoization
+    // SAPPOROBDD convention: larger level = closer to root
+    // Iterate from top level down to level 1
+    bddvar top_lev = manager_->top_lev();
     std::unordered_map<std::uint64_t, double> memo;
 
     std::function<double(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> double {
         if (a.is_constant()) {
             bool val = a.terminal_value() != a.is_negated();
-            return val ? std::pow(2.0, manager_->var_count() - level + 1) : 0.0;
+            return val ? std::pow(2.0, level) : 0.0;
         }
 
-        std::uint64_t key = a.data;
+        std::uint64_t key = (a.data << 20) | level;
         auto it = memo.find(key);
         if (it != memo.end()) return it->second;
 
         const DDNode& node = manager_->node_at(a.index());
         bddvar v = node.var();
+        bddvar v_lev = manager_->lev_of_var(v);
 
         // Account for skipped variables
-        double skip_factor = std::pow(2.0, v - level);
+        double skip_factor = std::pow(2.0, level - v_lev);
 
         Arc a0 = node.arc0();
         Arc a1 = node.arc1();
@@ -442,15 +447,15 @@ double BDD::card() const {
             a1 = a1.negated();
         }
 
-        double c0 = count_rec(a0, v + 1);
-        double c1 = count_rec(a1, v + 1);
-        double result = skip_factor * (c0 + c1) / 2.0;
+        double c0 = count_rec(a0, v_lev - 1);
+        double c1 = count_rec(a1, v_lev - 1);
+        double result = skip_factor * (c0 + c1);
 
         memo[key] = result;
         return result;
     };
 
-    return count_rec(arc_, 1);
+    return count_rec(arc_, top_lev);
 }
 
 double BDD::count(bddvar max_var) const {
@@ -462,8 +467,10 @@ double BDD::count(bddvar max_var) const {
 
     std::unordered_map<std::uint64_t, double> memo;
 
+    // Iterate from max_var (root, highest level) down to 1 (lowest level)
+    // SAPPOROBDD convention: larger level = closer to root
     std::function<double(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> double {
-        if (level > max_var) {
+        if (level == 0) {
             bool val = a.is_constant() ?
                        (a.terminal_value() != a.is_negated()) : true;
             return val ? 1.0 : 0.0;
@@ -471,7 +478,7 @@ double BDD::count(bddvar max_var) const {
 
         if (a.is_constant()) {
             bool val = a.terminal_value() != a.is_negated();
-            return val ? std::pow(2.0, max_var - level + 1) : 0.0;
+            return val ? std::pow(2.0, level) : 0.0;
         }
 
         std::uint64_t key = (a.data << 20) | level;
@@ -480,10 +487,11 @@ double BDD::count(bddvar max_var) const {
 
         const DDNode& node = manager_->node_at(a.index());
         bddvar v = node.var();
+        bddvar v_lev = manager_->lev_of_var(v);
 
-        if (v > level) {
-            // Variable not in this path, both branches are the same
-            double c = count_rec(a, level + 1);
+        if (v_lev < level) {
+            // Current level's variable is skipped, both branches are the same
+            double c = count_rec(a, level - 1);
             double result = 2.0 * c;
             memo[key] = result;
             return result;
@@ -496,15 +504,15 @@ double BDD::count(bddvar max_var) const {
             a1 = a1.negated();
         }
 
-        double c0 = count_rec(a0, v + 1);
-        double c1 = count_rec(a1, v + 1);
+        double c0 = count_rec(a0, v_lev - 1);
+        double c1 = count_rec(a1, v_lev - 1);
         double result = c0 + c1;
 
         memo[key] = result;
         return result;
     };
 
-    return count_rec(arc_, 1);
+    return count_rec(arc_, max_var);
 }
 
 #ifdef SBDD2_HAS_GMP
@@ -516,26 +524,28 @@ std::string BDD::exact_count() const {
         return val ? "1" : "0";
     }
 
-    // Count with memoization
+    // Count with memoization using levels
+    // SAPPOROBDD convention: larger level = closer to root
+    bddvar top_lev = manager_->top_lev();
     std::unordered_map<std::uint64_t, mpz_class> memo;
-    bddvar total_vars = manager_->var_count();
 
     std::function<mpz_class(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> mpz_class {
         if (a.is_constant()) {
             bool val = a.terminal_value() != a.is_negated();
             if (!val) return 0;
-            // 2^(total_vars - level + 1)
+            // 2^level for remaining variables below this level
             mpz_class result;
-            mpz_ui_pow_ui(result.get_mpz_t(), 2, total_vars - level + 1);
+            mpz_ui_pow_ui(result.get_mpz_t(), 2, level);
             return result;
         }
 
-        std::uint64_t key = a.data;
+        std::uint64_t key = (a.data << 20) | level;
         auto it = memo.find(key);
         if (it != memo.end()) return it->second;
 
         const DDNode& node = manager_->node_at(a.index());
         bddvar v = node.var();
+        bddvar v_lev = manager_->lev_of_var(v);
 
         Arc a0 = node.arc0();
         Arc a1 = node.arc1();
@@ -544,23 +554,19 @@ std::string BDD::exact_count() const {
             a1 = a1.negated();
         }
 
-        mpz_class c0 = count_rec(a0, v + 1);
-        mpz_class c1 = count_rec(a1, v + 1);
+        // Account for skipped variables: 2^(level - v_lev) for levels above this node
+        mpz_class skip_factor;
+        mpz_ui_pow_ui(skip_factor.get_mpz_t(), 2, level - v_lev);
 
-        // Account for skipped variables: 2^(v - level) * (c0 + c1) / 2
-        // = 2^(v - level - 1) * (c0 + c1)
-        mpz_class result = c0 + c1;
-        if (v > level) {
-            result <<= (v - level - 1);
-        } else {
-            result >>= 1;
-        }
+        mpz_class c0 = count_rec(a0, v_lev - 1);
+        mpz_class c1 = count_rec(a1, v_lev - 1);
+        mpz_class result = skip_factor * (c0 + c1);
 
         memo[key] = result;
         return result;
     };
 
-    return count_rec(arc_, 1).get_str();
+    return count_rec(arc_, top_lev).get_str();
 }
 #endif
 

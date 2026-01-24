@@ -61,10 +61,10 @@ ZDD ZDD::onset(bddvar v) const {
     bddvar top_lev = manager_->lev_of_var(top);
     bddvar v_lev = manager_->lev_of_var(v);
 
-    // SAPPOROBDD2 convention: smaller level = closer to root
-    // If top's level > v's level, v should have appeared earlier (closer to root)
+    // SAPPOROBDD convention: larger level = closer to root
+    // If top's level < v's level, v should have appeared earlier (closer to root)
     // but it didn't, so v is not in this subtree
-    if (top_lev > v_lev) {
+    if (top_lev < v_lev) {
         return ZDD::empty(*manager_);
     }
     if (top == v) {
@@ -93,10 +93,10 @@ ZDD ZDD::offset(bddvar v) const {
     bddvar top_lev = manager_->lev_of_var(top);
     bddvar v_lev = manager_->lev_of_var(v);
 
-    // SAPPOROBDD2 convention: smaller level = closer to root
-    // If top's level > v's level, v should have appeared earlier but didn't
+    // SAPPOROBDD convention: larger level = closer to root
+    // If top's level < v's level, v should have appeared earlier but didn't
     // So v is not in this subtree, meaning all sets here don't contain v
-    if (top_lev > v_lev) {
+    if (top_lev < v_lev) {
         return *this;
     }
     if (top == v) {
@@ -139,10 +139,10 @@ ZDD ZDD::change(bddvar v) const {
     bddvar v_lev = manager_->lev_of_var(v);
     const DDNode& node = manager_->node_at(arc_.index());
 
-    // SAPPOROBDD2 convention: smaller level = closer to root
-    // If v has smaller level than top, v should be the new root
+    // SAPPOROBDD convention: larger level = closer to root
+    // If v has larger level than top, v should be the new root
     // Since v was skipped, all sets don't contain v; toggling adds v to all sets
-    if (top_lev > v_lev) {
+    if (top_lev < v_lev) {
         Arc result = manager_->get_or_create_node_zdd(v, ARC_TERMINAL_0, arc_, true);
         return ZDD(manager_, result);
     }
@@ -183,7 +183,7 @@ static Arc zdd_union(DDManager* mgr, Arc f, Arc g) {
     bddvar f_var = f.is_constant() ? 0 : mgr->node_at(f.index()).var();
     bddvar g_var = g.is_constant() ? 0 : mgr->node_at(g.index()).var();
     // Use level comparison to find top variable
-    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
+    bddvar top_var = mgr->var_of_top_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
@@ -245,11 +245,12 @@ static Arc zdd_intersect(DDManager* mgr, Arc f, Arc g) {
     bddvar f_lev = mgr->lev_of_var(f_var);
     bddvar g_lev = mgr->lev_of_var(g_var);
 
-    if (f_lev < g_lev) {
-        // f has higher variable (closer to root), g doesn't have it
+    if (f_lev > g_lev) {
+        // f has higher level (closer to root), g doesn't have it
         const DDNode& node = mgr->node_at(f.index());
         result = zdd_intersect(mgr, node.arc0(), g);
-    } else if (f_lev > g_lev) {
+    } else if (f_lev < g_lev) {
+        // g has higher level (closer to root), f doesn't have it
         const DDNode& node = mgr->node_at(g.index());
         result = zdd_intersect(mgr, f, node.arc0());
     } else {
@@ -299,11 +300,13 @@ static Arc zdd_diff(DDManager* mgr, Arc f, Arc g) {
         } else {
             result = f;  // f - empty = f
         }
-    } else if (f_lev < g_lev) {
+    } else if (f_lev > g_lev) {
+        // f has higher level (closer to root)
         const DDNode& f_node = mgr->node_at(f.index());
         Arc r0 = zdd_diff(mgr, f_node.arc0(), g);
         result = mgr->get_or_create_node_zdd(f_var, r0, f_node.arc1(), true);
-    } else if (f_lev > g_lev) {
+    } else if (f_lev < g_lev) {
+        // g has higher level (closer to root)
         const DDNode& g_node = mgr->node_at(g.index());
         result = zdd_diff(mgr, f, g_node.arc0());
     } else {
@@ -380,10 +383,10 @@ static Arc zdd_quotient(DDManager* mgr, Arc f, Arc g) {
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar f_lev = mgr->lev_of_var(f_var);
 
-    // SAPPOROBDD2 convention: smaller level = closer to root
-    // If f's level is larger (farther from root) than g's level,
+    // SAPPOROBDD convention: larger level = closer to root
+    // If f's level is smaller (farther from root) than g's level,
     // f doesn't contain sets with g's top variable at the right position
-    if (f_lev > g_lev) {
+    if (f_lev < g_lev) {
         result = ARC_TERMINAL_0;
         mgr->cache_insert(CacheOp::QUOTIENT, f, g, result);
         return result;
@@ -474,8 +477,8 @@ static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
     bddvar g_var = mgr->node_at(g.index()).var();
     bddvar f_lev = mgr->lev_of_var(f_var);
     bddvar g_lev = mgr->lev_of_var(g_var);
-    // Smaller level = closer to root (SAPPOROBDD2 convention)
-    bddvar top_var = (f_lev <= g_lev) ? f_var : g_var;
+    // Larger level = closer to root (SAPPOROBDD convention)
+    bddvar top_var = (f_lev >= g_lev) ? f_var : g_var;
 
     Arc f0, f1, g0, g1;
 
@@ -679,7 +682,7 @@ static Arc zdd_restrict_impl(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
     bddvar g_var = mgr->node_at(g.index()).var();
-    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
+    bddvar top_var = mgr->var_of_top_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
@@ -735,7 +738,7 @@ static Arc zdd_permit_impl(DDManager* mgr, Arc f, Arc g) {
 
     bddvar f_var = mgr->node_at(f.index()).var();
     bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-    bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
+    bddvar top_var = mgr->var_of_top_lev(f_var, g_var);
 
     Arc f0, f1, g0, g1;
 
@@ -1144,7 +1147,7 @@ static Arc zdd_sym_set_impl(DDManager* mgr, Arc f0, Arc f1) {
 
     bddvar f0_var = f0.is_constant() ? BDDVAR_MAX : mgr->node_at(f0.index()).var();
     bddvar f1_var = f1.is_constant() ? BDDVAR_MAX : mgr->node_at(f1.index()).var();
-    bddvar top = mgr->var_of_min_lev(f0_var, f1_var);
+    bddvar top = mgr->var_of_top_lev(f0_var, f1_var);
 
     Arc f00, f01, f10, f11;
 
@@ -1248,7 +1251,7 @@ static Arc zdd_co_imply_set_impl(DDManager* mgr, Arc f0, Arc f1) {
 
     bddvar f0_var = f0.is_constant() ? BDDVAR_MAX : mgr->node_at(f0.index()).var();
     bddvar f1_var = f1.is_constant() ? BDDVAR_MAX : mgr->node_at(f1.index()).var();
-    bddvar top = mgr->var_of_min_lev(f0_var, f1_var);
+    bddvar top = mgr->var_of_top_lev(f0_var, f1_var);
 
     Arc f00, f01, f10, f11;
 
@@ -1372,12 +1375,12 @@ static Arc zdd_meet_impl(DDManager* mgr, Arc f, Arc g) {
     Arc f0 = f_node.arc0();
     Arc f1 = f_node.arc1();
 
-    if (f_lev < g_lev) {
-        // f has variable that g doesn't have (f is higher in DD)
+    if (f_lev > g_lev) {
+        // f has variable that g doesn't have (f has higher level, closer to root)
         Arc r0 = zdd_meet_impl(mgr, f0, g);
         Arc r1 = zdd_meet_impl(mgr, f1, g);
         result = zdd_union(mgr, r0, r1);
-    } else if (f_lev > g_lev) {
+    } else if (f_lev < g_lev) {
         const DDNode& g_node = mgr->node_at(g.index());
         Arc g0 = g_node.arc0();
         Arc g1 = g_node.arc1();

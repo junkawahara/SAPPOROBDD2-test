@@ -160,19 +160,20 @@ TEST(DDManagerTest, NewVarOfLev) {
     EXPECT_EQ(mgr.top_lev(), 3u);
 }
 
-TEST(DDManagerTest, VarOfMinLev) {
+TEST(DDManagerTest, VarOfTopLev) {
     DDManager mgr;
 
     bddvar v1 = mgr.new_var();  // var=1, lev=1
     bddvar v2 = mgr.new_var();  // var=2, lev=2
     mgr.new_var_of_lev(1);      // var=3, lev=1 (now v1 is at lev=2, v2 at lev=3)
 
-    // var=3 is at level 1, var=1 is at level 2
-    bddvar min_lev_var = mgr.var_of_min_lev(1, 3);
-    EXPECT_EQ(min_lev_var, 3u);  // v3 has smaller level
+    // v3 is at level 1, v1 is at level 2, v2 is at level 3
+    // Higher level = closer to root (SAPPOROBDD original convention)
+    bddvar top_lev_var = mgr.var_of_top_lev(1, 3);
+    EXPECT_EQ(top_lev_var, 1u);  // v1 has higher level (lev=2 > lev=1)
 
     // Test with BDDVAR_MAX
-    bddvar result = mgr.var_of_min_lev(1, BDDVAR_MAX);
+    bddvar result = mgr.var_of_top_lev(1, BDDVAR_MAX);
     EXPECT_EQ(result, 1u);
 }
 
@@ -184,11 +185,12 @@ TEST(DDManagerTest, VarIsAboveBelow) {
     bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1 (shifts v1 to lev=2, v2 to lev=3)
 
     // v3 is at lev=1, v1 is at lev=2, v2 is at lev=3
-    EXPECT_TRUE(mgr.var_is_above_or_equal(v3, v1));   // lev(v3)=1 <= lev(v1)=2
-    EXPECT_TRUE(mgr.var_is_above_or_equal(v3, v2));   // lev(v3)=1 <= lev(v2)=3
+    // Higher level = above = closer to root (SAPPOROBDD original convention)
+    EXPECT_FALSE(mgr.var_is_above_or_equal(v3, v1));  // lev(v3)=1 < lev(v1)=2, v3 is below v1
+    EXPECT_FALSE(mgr.var_is_above_or_equal(v3, v2));  // lev(v3)=1 < lev(v2)=3, v3 is below v2
     EXPECT_TRUE(mgr.var_is_above_or_equal(v1, v1));   // equal
-    EXPECT_FALSE(mgr.var_is_above_or_equal(v2, v1));  // lev(v2)=3 > lev(v1)=2
+    EXPECT_TRUE(mgr.var_is_above_or_equal(v2, v1));   // lev(v2)=3 > lev(v1)=2, v2 is above v1
 
-    EXPECT_TRUE(mgr.var_is_below(v2, v1));   // lev(v2)=3 > lev(v1)=2
-    EXPECT_FALSE(mgr.var_is_below(v3, v1));  // lev(v3)=1 < lev(v1)=2
+    EXPECT_FALSE(mgr.var_is_below(v2, v1));  // lev(v2)=3 > lev(v1)=2, v2 is above v1
+    EXPECT_TRUE(mgr.var_is_below(v3, v1));   // lev(v3)=1 < lev(v1)=2, v3 is below v1
 }

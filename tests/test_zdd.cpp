@@ -429,7 +429,8 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     // Insert variable at level 1, shifting v1 to lev=2, v2 to lev=3
     bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1
 
-    // Now ordering is: v3 (lev=1) > v1 (lev=2) > v2 (lev=3)
+    // Now levels: v3 (lev=1) < v1 (lev=2) < v2 (lev=3)
+    // SAPPOROBDD convention: higher level = closer to root
     // Create ZDDs using these variables
     ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
     ZDD s2 = ZDD::single(mgr, v2);  // {{v2}}
@@ -438,11 +439,11 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     // Test union - should respect level ordering
     ZDD u13 = s1 + s3;  // {{v1}, {v3}}
     EXPECT_EQ(u13.card(), 2.0);
-    EXPECT_EQ(u13.top(), v3);  // v3 should be at top (lowest level = highest in DD)
+    EXPECT_EQ(u13.top(), v1);  // v1 has higher level (lev=2) than v3 (lev=1), so v1 at root
 
     ZDD u12 = s1 + s2;  // {{v1}, {v2}}
     EXPECT_EQ(u12.card(), 2.0);
-    EXPECT_EQ(u12.top(), v1);  // v1 has lower level than v2
+    EXPECT_EQ(u12.top(), v2);  // v2 has higher level (lev=3) than v1 (lev=2), so v2 at root
 
     // Test intersection
     ZDD p13 = s1 * s3;  // Empty (different singleton sets)
@@ -451,7 +452,7 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     // Test product
     ZDD prod = s3.product(s1);  // {{v3, v1}}
     EXPECT_EQ(prod.card(), 1.0);
-    EXPECT_EQ(prod.top(), v3);  // v3 should be at top
+    EXPECT_EQ(prod.top(), v1);  // v1 at root (lev=2 > lev=1)
 }
 
 TEST(ZDDLevelTest, MeetWithDifferentLevels) {

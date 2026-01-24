@@ -181,8 +181,8 @@ Arc dfs_build_zdd_impl(DDManager& mgr, SPEC& spec, int rootLevel, int level,
         result = arc0;
     } else {
         // Create node
-        // Map: TdZdd level L → variable (rootLevel - L + 1)
-        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
+        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
+        bddvar var = mgr.var_of_lev(level);
         result = mgr.get_or_create_node_zdd(var, arc0, arc1, true);
     }
 
@@ -241,8 +241,8 @@ Arc dfs_build_bdd_impl(DDManager& mgr, SPEC& spec, int rootLevel, int level,
         result = arc0;
     } else {
         // Create node
-        // Map: TdZdd level L → variable (rootLevel - L + 1)
-        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
+        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
+        bddvar var = mgr.var_of_lev(level);
         result = mgr.get_or_create_node_bdd(var, arc0, arc1, true);
     }
 

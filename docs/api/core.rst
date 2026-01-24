@@ -142,11 +142,12 @@ CacheEntry
    bddvar top = mgr.top_lev();  // 4
 
    // 変数の相対位置を比較
-   bool v1_above = mgr.var_is_above(1, 2);  // true (Level 1 < Level 3)
-   bool v1_below = mgr.var_is_below(1, 2);  // false
+   // 大きいレベル = 根に近い（SAPPOROBDDオリジナルの規約）
+   bool v2_above = mgr.var_is_above_or_equal(2, 1);  // true (Level 4 > Level 1)
+   bool v1_below = mgr.var_is_below(1, 2);  // true (Level 1 < Level 4)
 
-   // より上位の変数を取得
-   bddvar higher = mgr.var_of_min_lev(1, 2);  // 1 (Level 1 < Level 3)
+   // より上位の変数を取得（レベルが大きい方）
+   bddvar higher = mgr.var_of_top_lev(1, 2);  // 2 (Level 4 > Level 1)
 
 定数
 ----

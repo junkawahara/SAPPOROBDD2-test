@@ -379,10 +379,11 @@ inline MVZDD MVZDD::ite(const MVZDD& base, bddvar mv,
     // x_{k-1} の 1-arc -> children[k-1]
     // x_{k-1} の 0-arc -> children[0]
 
-    // 最下位から構築
+    // 最下位（低レベル）から構築
+    // dd_vars[0] が最も低いレベル（終端に近い）、dd_vars[k-2] が最も高いレベル（根に近い）
     ZDD result = children[0].to_zdd();  // 0-arc の終着点
 
-    for (int i = k - 2; i >= 0; --i) {
+    for (int i = 0; i < k - 1; ++i) {
         bddvar dv = dd_vars[i];
         ZDD hi = children[i + 1].to_zdd();  // i+1 番目の値
         ZDD lo = result;
@@ -424,12 +425,20 @@ inline MVZDD MVZDD::child(int value) const {
     const auto& dd_vars = dd_vars_of(top_mv);
 
     // value に対応するアークをたどる
+    // dd_vars[k-2] が根（最高レベル）、dd_vars[0] が最低レベル
+    // 根から終端に向かってたどる
     ZDD current = zdd_;
 
-    for (int i = 0; i < static_cast<int>(dd_vars.size()); ++i) {
+    for (int i = static_cast<int>(dd_vars.size()) - 1; i >= 0; --i) {
         if (current.is_terminal()) break;
         if (current.top() != dd_vars[i]) {
             // この変数がスキップされている場合は 0-arc と同じ
+            // スキップされた変数で value を選ぼうとしていたら取得不可
+            if (i == value - 1 && value > 0) {
+                // この値に対応する変数がスキップ = この値は選べない
+                // empty を返す
+                return MVZDD(manager_, var_table_, ZDD::empty(*manager_));
+            }
             continue;
         }
 
@@ -487,14 +496,18 @@ inline bool MVZDD::evaluate(const std::vector<int>& assignment) const {
         const auto& dd_vars = dd_vars_of(mv);
 
         // この MVDD 変数の内部変数をたどる
-        for (int i = 0; i < static_cast<int>(dd_vars.size()); ++i) {
+        // SAPPOROBDD convention: 大きいレベル = 根に近い
+        // dd_vars は [dd_var_1, dd_var_2, ..., dd_var_{k-1}] で、
+        // dd_var_{k-1} が最も高いレベル（根に近い）
+        // 根から終端に向かってたどるため、逆順でイテレート
+        for (int i = static_cast<int>(dd_vars.size()) - 1; i >= 0; --i) {
             if (current.is_terminal()) {
                 // 途中で終端に到達
                 if (current.is_zero()) {
                     return false;
                 }
                 // 1-終端で value > 0 で、まだ対応する変数を見ていない
-                if (value > 0 && i <= value - 1) {
+                if (value > 0 && i >= value - 1) {
                     return false;
                 }
                 break;

@@ -101,9 +101,8 @@ UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
         nodeArcs[level].resize(numNodes);
 
         // Create placeholder nodes for this level
-        // Map: TdZdd level L → variable (rootLevel - L + 1)
-        // This matches ToSbdd2Zdd's convention: edge = topLevel - level + 1, var = edge
-        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
+        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
+        bddvar var = mgr.var_of_lev(level);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_zdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
@@ -280,9 +279,8 @@ UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec) {
         nodeArcs[level].resize(numNodes);
 
         // Create placeholder nodes for this level
-        // Map: TdZdd level L → variable (rootLevel - L + 1)
-        // This matches ToSbdd2Zdd's convention: edge = topLevel - level + 1, var = edge
-        bddvar var = static_cast<bddvar>(rootLevel - level + 1);
+        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
+        bddvar var = mgr.var_of_lev(level);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_bdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);

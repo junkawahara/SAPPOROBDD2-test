@@ -215,36 +215,42 @@ public:
      * @brief 2つの変数のレベルを比較して上位（根に近い）変数を返す
      * @param v1 変数番号1
      * @param v2 変数番号2
-     * @return レベルが小さい方（根に近い方）の変数番号
+     * @return レベルが大きい方（根に近い方）の変数番号
+     *
+     * オリジナルSAPPOROBDDの規約に従い、大きいレベル = 根に近い。
      */
-    bddvar var_of_min_lev(bddvar v1, bddvar v2) const {
+    bddvar var_of_top_lev(bddvar v1, bddvar v2) const {
         if (v1 == 0 || v1 > var_count_) return v2;
         if (v2 == 0 || v2 > var_count_) return v1;
-        return (var_to_level_[v1] <= var_to_level_[v2]) ? v1 : v2;
+        return (var_to_level_[v1] >= var_to_level_[v2]) ? v1 : v2;
     }
 
     /**
      * @brief 変数v1がv2より上位（根に近い）かどうか
      * @param v1 変数番号1
      * @param v2 変数番号2
-     * @return v1のレベルがv2のレベル以下ならtrue
+     * @return v1のレベルがv2のレベル以上ならtrue
+     *
+     * オリジナルSAPPOROBDDの規約に従い、大きいレベル = 根に近い。
      */
     bool var_is_above_or_equal(bddvar v1, bddvar v2) const {
         if (v1 == 0 || v1 > var_count_) return false;
         if (v2 == 0 || v2 > var_count_) return true;
-        return var_to_level_[v1] <= var_to_level_[v2];
+        return var_to_level_[v1] >= var_to_level_[v2];
     }
 
     /**
      * @brief 変数v1がv2より下位（葉に近い）かどうか
      * @param v1 変数番号1
      * @param v2 変数番号2
-     * @return v1のレベルがv2のレベルより大きいならtrue
+     * @return v1のレベルがv2のレベルより小さいならtrue
+     *
+     * オリジナルSAPPOROBDDの規約に従い、小さいレベル = 終端に近い。
      */
     bool var_is_below(bddvar v1, bddvar v2) const {
         if (v1 == 0 || v1 > var_count_) return true;
         if (v2 == 0 || v2 > var_count_) return false;
-        return var_to_level_[v1] > var_to_level_[v2];
+        return var_to_level_[v1] < var_to_level_[v2];
     }
 
     /**

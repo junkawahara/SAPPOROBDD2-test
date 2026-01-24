@@ -338,7 +338,7 @@ private:
         // 変数を取得
         bddvar f_var = f.is_constant() ? BDDVAR_MAX : mgr->node_at(f.index()).var();
         bddvar g_var = g.is_constant() ? BDDVAR_MAX : mgr->node_at(g.index()).var();
-        bddvar top_var = mgr->var_of_min_lev(f_var, g_var);
+        bddvar top_var = mgr->var_of_top_lev(f_var, g_var);
 
         // Shannon展開
         Arc f0, f1, g0, g1;
@@ -401,10 +401,10 @@ private:
 
         bddvar top_var = f_var;
         if (g_var != BDDVAR_MAX && mgr->var_is_above_or_equal(g_var, top_var)) {
-            top_var = mgr->var_of_min_lev(top_var, g_var);
+            top_var = mgr->var_of_top_lev(top_var, g_var);
         }
         if (h_var != BDDVAR_MAX && mgr->var_is_above_or_equal(h_var, top_var)) {
-            top_var = mgr->var_of_min_lev(top_var, h_var);
+            top_var = mgr->var_of_top_lev(top_var, h_var);
         }
 
         // Shannon展開
