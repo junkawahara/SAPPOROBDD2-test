@@ -113,7 +113,29 @@ CacheEntry
 変数レベル管理
 --------------
 
-変数番号（VarID）とレベルのマッピングを管理できます。
+変数番号（Variable Number）とレベル（Level）のマッピングを管理できます。
+
+レベルの規約（SAPPOROBDDオリジナル準拠）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* **終端（Terminal）: レベル 0**
+* **大きいレベル = 根に近い**（DDの上位）
+* **小さいレベル = 終端に近い**（DDの下位）
+
+この規約は、オリジナルのSAPPOROBDDライブラリおよびTdZddと同じです。
+
+.. code-block:: text
+
+   レベル N:    [根]     ← 最上位（レベル最大）
+                 |
+   レベル N-1: [中間]
+                 |
+   レベル 1:   [最下]   ← 最下位（終端の1つ上）
+                 |
+   レベル 0:    終端     ← Terminal
+
+基本操作
+~~~~~~~~
 
 .. code-block:: cpp
 
@@ -130,6 +152,14 @@ CacheEntry
    // レベルから変数番号を取得
    bddvar var = mgr.var_of_lev(2);  // 2
 
+   // 最上位レベルを取得
+   bddvar top = mgr.top_lev();  // 3
+
+変数順序の変更
+~~~~~~~~~~~~~~
+
+.. code-block:: cpp
+
    // 指定レベルに新しい変数を挿入
    bddvar new_var = mgr.new_var_of_lev(2);  // VarID=4, Level=2
    // 既存の変数のレベルがシフト:
@@ -138,16 +168,42 @@ CacheEntry
    // VarID=3: Level=4 (元Level=3が4にシフト)
    // VarID=4: Level=2 (新しく挿入)
 
-   // 最上位レベルを取得
-   bddvar top = mgr.top_lev();  // 4
+変数の比較
+~~~~~~~~~~
+
+.. code-block:: cpp
 
    // 変数の相対位置を比較
-   // 大きいレベル = 根に近い（SAPPOROBDDオリジナルの規約）
-   bool v2_above = mgr.var_is_above_or_equal(2, 1);  // true (Level 4 > Level 1)
-   bool v1_below = mgr.var_is_below(1, 2);  // true (Level 1 < Level 4)
+   // 大きいレベル = 根に近い
+   bool v2_above = mgr.var_is_above_or_equal(2, 1);  // true (Level 3 > Level 1)
+   bool v1_below = mgr.var_is_below(1, 2);  // true (Level 1 < Level 3)
 
    // より上位の変数を取得（レベルが大きい方）
-   bddvar higher = mgr.var_of_top_lev(1, 2);  // 2 (Level 4 > Level 1)
+   bddvar higher = mgr.var_of_top_lev(1, 2);  // 2 (Level 3 > Level 1)
+
+主要メソッド一覧
+~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :widths: 40 60
+   :header-rows: 1
+
+   * - メソッド
+     - 説明
+   * - ``lev_of_var(v)``
+     - 変数番号 v のレベルを返す
+   * - ``var_of_lev(lev)``
+     - レベル lev の変数番号を返す
+   * - ``top_lev()``
+     - 最上位（最大）レベルを返す
+   * - ``new_var_of_lev(lev)``
+     - 指定レベルに新変数を挿入
+   * - ``var_is_above_or_equal(v1, v2)``
+     - v1 が v2 以上のレベルか判定
+   * - ``var_is_below(v1, v2)``
+     - v1 が v2 より下のレベルか判定
+   * - ``var_of_top_lev(v1, v2)``
+     - より上位の変数を返す
 
 定数
 ----
