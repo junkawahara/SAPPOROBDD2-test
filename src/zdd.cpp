@@ -28,7 +28,7 @@ ZDD ZDD::single(DDManager& mgr) {
     return mgr.zdd_base();
 }
 
-ZDD ZDD::single(DDManager& mgr, bddvar v) {
+ZDD ZDD::singleton(DDManager& mgr, bddvar v) {
     // Single element set {v}
     Arc arc = mgr.get_or_create_node_zdd(v, ARC_TERMINAL_0, ARC_TERMINAL_1, true);
     return ZDD(&mgr, arc);
@@ -131,7 +131,7 @@ ZDD ZDD::change(bddvar v) const {
             return *this;
         }
         // For base (terminal 1), toggle v means add v
-        return ZDD::single(*manager_, v);
+        return ZDD::singleton(*manager_, v);
     }
 
     bddvar top = manager_->node_at(arc_.index()).var();
@@ -1015,7 +1015,7 @@ static ZDD zdd_support(DDManager* mgr, Arc f) {
 
     ZDD result = ZDD::empty(*mgr);
     for (bddvar v : vars) {
-        result = result + ZDD::single(*mgr, v);
+        result = result + ZDD::singleton(*mgr, v);
     }
     return result;
 }
@@ -1033,11 +1033,11 @@ ZDD ZDD::sym_grp() const {
     for (bddvar v1 : vars) {
         if (processed.count(v1)) continue;
 
-        ZDD group = ZDD::single(*manager_, v1);
+        ZDD group = ZDD::singleton(*manager_, v1);
         for (bddvar v2 : vars) {
             if (v1 != v2 && !processed.count(v2)) {
                 if (sym_chk(v1, v2) == 1) {
-                    group = group + ZDD::single(*manager_, v2);
+                    group = group + ZDD::singleton(*manager_, v2);
                     processed.insert(v2);
                 }
             }
@@ -1085,7 +1085,7 @@ ZDD ZDD::sym_grp_naive() const {
         bddvar v1 = vars[i];
         if (processed.count(v1)) continue;
 
-        ZDD group = ZDD::single(*manager_, v1);
+        ZDD group = ZDD::singleton(*manager_, v1);
         ZDD f0 = offset(v1);
         ZDD f1 = onset0(v1);
 
@@ -1095,7 +1095,7 @@ ZDD ZDD::sym_grp_naive() const {
 
             // Direct check: f0.onset0(v2) == f1.offset(v2)
             if (f0.onset0(v2) == f1.offset(v2)) {
-                group = group + ZDD::single(*manager_, v2);
+                group = group + ZDD::singleton(*manager_, v2);
                 processed.insert(v2);
             }
         }

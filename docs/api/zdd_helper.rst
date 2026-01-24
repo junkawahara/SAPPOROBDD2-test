@@ -147,7 +147,7 @@ get_random_zdd_with_card
 
 .. code-block:: cpp
 
-   ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+   ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
 
    // 変数2,3をドントケアにする
    // {{1}} -> {{1}, {1,2}, {1,3}, {1,2,3}}
@@ -160,8 +160,8 @@ get_random_zdd_with_card
 
 .. code-block:: cpp
 
-   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2) +
-                ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
+                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
    // {{1}, {2}, {1,2}}
 
    std::vector<int> test1 = {1, 2};

@@ -17,8 +17,8 @@ SeqBDD SeqBDD::single(DDManager& mgr) {
     return SeqBDD(ZDD::single(mgr));
 }
 
-SeqBDD SeqBDD::single(DDManager& mgr, bddvar v) {
-    return SeqBDD(ZDD::single(mgr, v));
+SeqBDD SeqBDD::singleton(DDManager& mgr, bddvar v) {
+    return SeqBDD(ZDD::singleton(mgr, v));
 }
 
 // Set operations

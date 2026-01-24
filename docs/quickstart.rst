@@ -116,9 +116,9 @@ ZDDの操作
 .. code-block:: cpp
 
    // 単一要素集合を作成
-   ZDD s1 = ZDD::single(mgr, 1);   // {{1}}
-   ZDD s2 = ZDD::single(mgr, 2);   // {{2}}
-   ZDD s3 = ZDD::single(mgr, 3);   // {{3}}
+   ZDD s1 = ZDD::singleton(mgr, 1);   // {{1}}
+   ZDD s2 = ZDD::singleton(mgr, 2);   // {{2}}
+   ZDD s3 = ZDD::singleton(mgr, 3);   // {{3}}
 
    // 集合族演算
    ZDD family = s1 + s2 + s3;      // 和: {{1}, {2}, {3}}

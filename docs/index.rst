@@ -44,8 +44,8 @@ SAPPOROBDD 2.0は、高性能なBDD（二分決定図）およびZDD（ゼロ抑
        BDD f = x1 & x2;  // x1 AND x2
 
        // ZDDの作成と演算
-       ZDD s1 = ZDD::single(mgr, 1);
-       ZDD s2 = ZDD::single(mgr, 2);
+       ZDD s1 = ZDD::singleton(mgr, 1);
+       ZDD s2 = ZDD::singleton(mgr, 2);
        ZDD family = s1 + s2;  // {{1}, {2}}
 
        return 0;

@@ -23,8 +23,8 @@ ZDD
    for (int i = 0; i < 5; ++i) mgr.new_var();
 
    // 単一要素集合
-   ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
-   ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+   ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
+   ZDD s2 = ZDD::singleton(mgr, 2);  // {{2}}
 
    // 集合族の和
    ZDD family = s1 + s2;  // {{1}, {2}}
@@ -53,8 +53,8 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD a = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);  // {{1}, {2}}
-   ZDD b = ZDD::single(mgr, 3) + ZDD::single(mgr, 4);  // {{3}, {4}}
+   ZDD a = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2);  // {{1}, {2}}
+   ZDD b = ZDD::singleton(mgr, 3) + ZDD::singleton(mgr, 4);  // {{3}, {4}}
 
    // 直積: 各集合の和を取る
    ZDD prod = a.product(b);  // {{1,3}, {1,4}, {2,3}, {2,4}}
@@ -86,7 +86,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+   ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
 
    // 2つの変数を交換
    ZDD swapped = s12.swap(1, 2);  // {{1,2}} (この場合は同じ)
@@ -149,7 +149,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+   ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
 
    // 1が含まれるなら2も含まれるか
    int implies = s12.imply_chk(1, 2);  // 1 (1 => 2)
@@ -178,8 +178,8 @@ Meet演算
 
 .. code-block:: cpp
 
-   ZDD a = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
-   ZDD b = ZDD::single(mgr, 2).product(ZDD::single(mgr, 3));  // {{2,3}}
+   ZDD a = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+   ZDD b = ZDD::singleton(mgr, 2).product(ZDD::singleton(mgr, 3));  // {{2,3}}
 
    // Meet: 要素ごとの積集合
    ZDD meet_result = zdd_meet(a, b);  // {{2}} ({1,2} ∩ {2,3} = {2})
@@ -374,8 +374,8 @@ ZDDExactIndexData（GMP版）
    DDManager mgr;
    for (int i = 1; i <= 5; ++i) mgr.new_var();
 
-   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2) +
-                ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
+                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
    // family = {{1}, {2}, {1,2}}
 
    std::cout << "辞書順:" << std::endl;

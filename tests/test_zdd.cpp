@@ -30,8 +30,8 @@ TEST_F(ZDDTest, Terminals) {
 }
 
 TEST_F(ZDDTest, SingleElement) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
 
     EXPECT_EQ(s1.card(), 1.0);
     EXPECT_EQ(s2.card(), 1.0);
@@ -40,8 +40,8 @@ TEST_F(ZDDTest, SingleElement) {
 }
 
 TEST_F(ZDDTest, UnionOperation) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD empty = ZDD::empty(mgr);
 
     // {1} + {2} = {{1}, {2}}
@@ -56,8 +56,8 @@ TEST_F(ZDDTest, UnionOperation) {
 }
 
 TEST_F(ZDDTest, IntersectionOperation) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD empty = ZDD::empty(mgr);
 
     // {1} * {2} = {} (empty)
@@ -72,8 +72,8 @@ TEST_F(ZDDTest, IntersectionOperation) {
 }
 
 TEST_F(ZDDTest, DifferenceOperation) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
 
     // {1} - {2} = {1}
     EXPECT_EQ(s1 - s2, s1);
@@ -88,8 +88,8 @@ TEST_F(ZDDTest, DifferenceOperation) {
 }
 
 TEST_F(ZDDTest, OnsetOffset) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     // onset(1) on {{1}, {2}} = {{}} (base)
@@ -114,15 +114,15 @@ TEST_F(ZDDTest, Change) {
 
     // Toggle 1 on {{}} = {{1}}
     ZDD c = base.change(1);
-    EXPECT_EQ(c, ZDD::single(mgr, 1));
+    EXPECT_EQ(c, ZDD::singleton(mgr, 1));
 
     // Toggle 1 again = {{}}
     EXPECT_EQ(c.change(1), base);
 }
 
 TEST_F(ZDDTest, Product) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD base = ZDD::single(mgr);
 
     // {1} * base = {1} (cross product with empty set)
@@ -142,8 +142,8 @@ TEST_F(ZDDTest, Product) {
 }
 
 TEST_F(ZDDTest, Enumerate) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     auto sets = u.enumerate();
@@ -162,8 +162,8 @@ TEST_F(ZDDTest, Enumerate) {
 }
 
 TEST_F(ZDDTest, OneSet) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;
 
     auto oneSet = u.one_set();
@@ -172,9 +172,9 @@ TEST_F(ZDDTest, OneSet) {
 }
 
 TEST_F(ZDDTest, Card) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
-    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
+    ZDD s3 = ZDD::singleton(mgr, 3);
 
     ZDD u = s1 + s2 + s3;  // {{1}, {2}, {3}}
     EXPECT_EQ(u.card(), 3.0);
@@ -189,17 +189,17 @@ TEST_F(ZDDTest, Card) {
 }
 
 TEST_F(ZDDTest, Size) {
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
     EXPECT_EQ(s1.size(), 1u);
 
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;
     EXPECT_GE(u.size(), 1u);
 }
 
 TEST_F(ZDDTest, Support) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD p = s1.product(s2);  // {{1,2}}
 
     auto supp = p.support();
@@ -209,7 +209,7 @@ TEST_F(ZDDTest, Support) {
 }
 
 TEST_F(ZDDTest, LowHigh) {
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
 
     // Low should be empty (no sets without element 1)
     EXPECT_TRUE(s1.low().is_zero());
@@ -223,8 +223,8 @@ TEST_F(ZDDTest, ComplexFamily) {
     // P({1,2}) = {{}, {1}, {2}, {1,2}}
 
     ZDD base = ZDD::single(mgr);          // {{}}
-    ZDD s1 = ZDD::single(mgr, 1);       // {{1}}
-    ZDD s2 = ZDD::single(mgr, 2);       // {{2}}
+    ZDD s1 = ZDD::singleton(mgr, 1);       // {{1}}
+    ZDD s2 = ZDD::singleton(mgr, 2);       // {{2}}
     ZDD s12 = s1.product(s2);           // {{1,2}}
 
     ZDD powerset = base + s1 + s2 + s12;
@@ -237,12 +237,12 @@ TEST_F(ZDDTest, ComplexFamily) {
 // ============== New method tests ==============
 
 TEST_F(ZDDTest, Swap) {
-    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
     ZDD swapped = s12.swap(1, 2);
     EXPECT_EQ(swapped, s12);  // Swapping should give same result for this case
 
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
-    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::singleton(mgr, 2);  // {{2}}
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     // Swap should work correctly
@@ -251,8 +251,8 @@ TEST_F(ZDDTest, Swap) {
 }
 
 TEST_F(ZDDTest, LitLen) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
-    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::singleton(mgr, 2);  // {{2}}
     ZDD s12 = s1.product(s2);      // {{1,2}}
 
     EXPECT_EQ(s1.lit(), 1u);   // 1 literal
@@ -266,11 +266,11 @@ TEST_F(ZDDTest, LitLen) {
 }
 
 TEST_F(ZDDTest, Shift) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     ZDD shifted = s1 << 2;
     EXPECT_EQ(shifted.top(), 3u);  // Variable 1 becomes 3
 
-    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD s3 = ZDD::singleton(mgr, 3);
     ZDD rshifted = s3 >> 1;
     EXPECT_EQ(rshifted.top(), 2u);  // Variable 3 becomes 2
 }
@@ -278,8 +278,8 @@ TEST_F(ZDDTest, Shift) {
 TEST_F(ZDDTest, PermitSym) {
     // Create a power set
     ZDD base = ZDD::single(mgr);
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD s12 = s1.product(s2);
     ZDD powerset = base + s1 + s2 + s12;  // {{}, {1}, {2}, {1,2}}
 
@@ -293,8 +293,8 @@ TEST_F(ZDDTest, PermitSym) {
 }
 
 TEST_F(ZDDTest, Always) {
-    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
-    ZDD s13 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 3));  // {{1,3}}
+    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s13 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 3));  // {{1,3}}
     ZDD u = s12 + s13;  // {{1,2}, {1,3}}
 
     // Variable 1 is in all sets
@@ -305,8 +305,8 @@ TEST_F(ZDDTest, Always) {
 }
 
 TEST_F(ZDDTest, SymChk) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     // Variables 1 and 2 should be symmetric (can be swapped)
@@ -319,13 +319,13 @@ TEST_F(ZDDTest, SymChk) {
 }
 
 TEST_F(ZDDTest, ImplyChk) {
-    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
+    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
 
     // In {{1,2}}, 1 implies 2 and 2 implies 1
     EXPECT_EQ(s12.imply_chk(1, 2), 1);
     EXPECT_EQ(s12.imply_chk(2, 1), 1);
 
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD combined = s1 + s12;  // {{1}, {1,2}}
 
     // 1 does not imply 2 (since {1} exists without 2)
@@ -335,17 +335,17 @@ TEST_F(ZDDTest, ImplyChk) {
 }
 
 TEST_F(ZDDTest, IsPoly) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     EXPECT_EQ(s1.is_poly(), 0);     // Single element
 
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
     EXPECT_EQ(u.is_poly(), 1);  // Multiple elements
 }
 
 TEST_F(ZDDTest, Meet) {
-    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
-    ZDD s23 = ZDD::single(mgr, 2).product(ZDD::single(mgr, 3));  // {{2,3}}
+    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s23 = ZDD::singleton(mgr, 2).product(ZDD::singleton(mgr, 3));  // {{2,3}}
 
     ZDD meet_result = zdd_meet(s12, s23);
     // Meet of {1,2} and {2,3} should give {{2}} (intersection of sets)
@@ -383,15 +383,15 @@ TEST_F(ZDDTest, GetSingleSet) {
 }
 
 TEST_F(ZDDTest, MakeDontCare) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     std::vector<bddvar> dc_vars = {2};
     ZDD dc = make_dont_care(s1, dc_vars);  // {{1}, {1,2}}
     EXPECT_EQ(dc.card(), 2.0);
 }
 
 TEST_F(ZDDTest, IsMember) {
-    ZDD s12 = ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));  // {{1,2}}
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD combined = s1 + s12;  // {{1}, {1,2}}
 
     std::vector<bddvar> test1 = {1};
@@ -432,9 +432,9 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     // Now levels: v3 (lev=1) < v1 (lev=2) < v2 (lev=3)
     // SAPPOROBDD convention: higher level = closer to root
     // Create ZDDs using these variables
-    ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
-    ZDD s2 = ZDD::single(mgr, v2);  // {{v2}}
-    ZDD s3 = ZDD::single(mgr, v3);  // {{v3}}
+    ZDD s1 = ZDD::singleton(mgr, v1);  // {{v1}}
+    ZDD s2 = ZDD::singleton(mgr, v2);  // {{v2}}
+    ZDD s3 = ZDD::singleton(mgr, v3);  // {{v3}}
 
     // Test union - should respect level ordering
     ZDD u13 = s1 + s3;  // {{v1}, {v3}}
@@ -465,8 +465,8 @@ TEST(ZDDLevelTest, MeetWithDifferentLevels) {
     bddvar v3 = mgr.new_var_of_lev(1);  // var=3, lev=1; now v1 at lev=2, v2 at lev=3
 
     // Create sets
-    ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
-    ZDD s3 = ZDD::single(mgr, v3);  // {{v3}}
+    ZDD s1 = ZDD::singleton(mgr, v1);  // {{v1}}
+    ZDD s3 = ZDD::singleton(mgr, v3);  // {{v3}}
     ZDD base = ZDD::single(mgr);      // {{}}
 
     // Meet of {{v1}} and {{v3}} should be {{}}
@@ -492,12 +492,12 @@ TEST(ZDDExactCountTest, MatchesCard) {
 
     // Single element
     mgr.new_var();
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
     EXPECT_EQ(s1.exact_count(), std::to_string(static_cast<long long>(s1.card())));
 
     // Union of two singletons
     mgr.new_var();
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;
     EXPECT_EQ(u.exact_count(), std::to_string(static_cast<long long>(u.card())));
 
@@ -561,7 +561,7 @@ TEST_F(ZDDIndexTest, EmptyAndBase) {
 }
 
 TEST_F(ZDDIndexTest, SingleElement) {
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
 
     EXPECT_EQ(s1.indexed_count(), 1.0);
     EXPECT_EQ(s1.index_height(), 1);
@@ -571,8 +571,8 @@ TEST_F(ZDDIndexTest, SingleElement) {
 }
 
 TEST_F(ZDDIndexTest, TwoElements) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     EXPECT_EQ(u.card(), 2.0);
@@ -580,9 +580,9 @@ TEST_F(ZDDIndexTest, TwoElements) {
 }
 
 TEST_F(ZDDIndexTest, MultipleElements) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
-    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
+    ZDD s3 = ZDD::singleton(mgr, 3);
     ZDD u = s1 + s2 + s3;  // {{1}, {2}, {3}}
 
     EXPECT_EQ(u.card(), 3.0);
@@ -598,9 +598,9 @@ TEST_F(ZDDIndexTest, PowerSet) {
 }
 
 TEST_F(ZDDIndexTest, MatchesCard) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
-    ZDD s3 = ZDD::single(mgr, 3);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
+    ZDD s3 = ZDD::singleton(mgr, 3);
 
     // Various combinations
     ZDD u12 = s1 + s2;
@@ -682,7 +682,7 @@ TEST_F(ZDDIndexTest, OrderOfEmptySet) {
 }
 
 TEST_F(ZDDIndexTest, OrderOfSingleElement) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     std::set<bddvar> set1 = {1};
     std::set<bddvar> empty_set;
 
@@ -691,8 +691,8 @@ TEST_F(ZDDIndexTest, OrderOfSingleElement) {
 }
 
 TEST_F(ZDDIndexTest, OrderOfMultipleSets) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::set<bddvar> set1 = {1};
@@ -708,7 +708,7 @@ TEST_F(ZDDIndexTest, OrderOfMultipleSets) {
 }
 
 TEST_F(ZDDIndexTest, GetSetBasic) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     std::set<bddvar> result = s1.get_set(0);
     EXPECT_EQ(result.size(), 1u);
     EXPECT_EQ(result.count(1), 1u);
@@ -762,8 +762,8 @@ TEST_F(ZDDIndexTest, ExactOrderOfRoundTrip) {
 // ============== Weight Optimization Tests ==============
 
 TEST_F(ZDDIndexTest, MaxWeightSimple) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::vector<int64_t> weights = {0, 10, 20};  // weight[1]=10, weight[2]=20
@@ -776,8 +776,8 @@ TEST_F(ZDDIndexTest, MaxWeightSimple) {
 }
 
 TEST_F(ZDDIndexTest, MinWeightSimple) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::vector<int64_t> weights = {0, 10, 20};
@@ -791,7 +791,7 @@ TEST_F(ZDDIndexTest, MinWeightSimple) {
 
 TEST_F(ZDDIndexTest, MaxWeightWithEmptySet) {
     ZDD base = ZDD::single(mgr);  // {{}}
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD u = base + s1;  // {{}, {1}}
 
     std::vector<int64_t> weights = {0, 10};
@@ -828,8 +828,8 @@ TEST_F(ZDDIndexTest, MaxWeightPowerSet) {
 }
 
 TEST_F(ZDDIndexTest, SumWeight) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
-    ZDD s2 = ZDD::single(mgr, 2);  // {{2}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
+    ZDD s2 = ZDD::singleton(mgr, 2);  // {{2}}
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::vector<int64_t> weights = {0, 10, 20};
@@ -893,7 +893,7 @@ TEST_F(ZDDIndexTest, SampleRandomlyBase) {
 }
 
 TEST_F(ZDDIndexTest, SampleRandomlySingle) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
 
     std::mt19937 rng(42);
     std::set<bddvar> result = s1.sample_randomly(rng);
@@ -902,8 +902,8 @@ TEST_F(ZDDIndexTest, SampleRandomlySingle) {
 }
 
 TEST_F(ZDDIndexTest, SampleRandomlyTwoSets) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::mt19937 rng(42);
@@ -1004,7 +1004,7 @@ TEST_F(ZDDIndexTest, DictIteratorBase) {
 }
 
 TEST_F(ZDDIndexTest, DictIteratorSingle) {
-    ZDD s1 = ZDD::single(mgr, 1);  // {{1}}
+    ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
 
     std::vector<std::set<bddvar>> results;
     for (auto it = s1.dict_begin(); it != s1.dict_end(); ++it) {
@@ -1143,8 +1143,8 @@ TEST_F(ZDDIndexTest, RandomIterator) {
 }
 
 TEST_F(ZDDIndexTest, WeightIteratorSmall) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD u = s1 + s2;  // {{1}, {2}}
 
     std::vector<int64_t> weights = {0, 10, 20};

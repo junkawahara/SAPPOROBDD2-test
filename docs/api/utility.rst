@@ -332,7 +332,7 @@ BDDCTによるコスト制約付き列挙
    // 全部分集合を作成
    ZDD all = ZDD::single(mgr);
    for (int i = 1; i <= 5; ++i) {
-       all = all + all.product(ZDD::single(mgr, i));
+       all = all + all.product(ZDD::singleton(mgr, i));
    }
 
    // コスト50以下の集合を抽出
@@ -408,7 +408,7 @@ lib_bdd形式
    BDD imported = import_bdd_as_libbdd(mgr, "bdd.libbdd");
 
    // ZDDでも同様
-   ZDD z = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);
+   ZDD z = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2);
    export_zdd_as_libbdd(z, "zdd.libbdd");
    ZDD z_imported = import_zdd_as_libbdd(mgr, "zdd.libbdd");
 
@@ -420,7 +420,7 @@ Graphillion形式
    DDManager mgr;
    for (int i = 1; i <= 5; ++i) mgr.new_var();
 
-   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2);
 
    // Graphillion形式でエクスポート
    std::ofstream ofs("family.graphillion");
@@ -438,7 +438,7 @@ Knuth形式
    DDManager mgr;
    for (int i = 1; i <= 5; ++i) mgr.new_var();
 
-   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2);
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2);
 
    // Knuth形式でエクスポート
    std::ofstream ofs("family.knuth");
@@ -458,8 +458,8 @@ SVG出力
    DDManager mgr;
    for (int i = 1; i <= 3; ++i) mgr.new_var();
 
-   ZDD family = ZDD::single(mgr, 1) + ZDD::single(mgr, 2) +
-                ZDD::single(mgr, 1).product(ZDD::single(mgr, 2));
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
+                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
 
    // デフォルトオプションでSVG出力
    export_zdd_as_svg(family, "family.svg");

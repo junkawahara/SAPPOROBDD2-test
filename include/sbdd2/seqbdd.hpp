@@ -32,7 +32,7 @@ public:
     // Static factory methods
     static SeqBDD empty(DDManager& mgr);   // Empty set
     static SeqBDD single(DDManager& mgr);  // Empty sequence only
-    static SeqBDD single(DDManager& mgr, bddvar v);  // Single element sequence
+    static SeqBDD singleton(DDManager& mgr, bddvar v);  // Single element sequence
 
     // Set operations
     SeqBDD operator&(const SeqBDD& other) const;  // Intersection

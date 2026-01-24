@@ -155,8 +155,8 @@ TEST_F(MTZDDTest, AdditionWithVariables) {
 
 // From ZDD conversion
 TEST_F(MTZDDTest, FromZDD) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD f = s1 + s2;  // {{1}, {2}}
 
     MTZDD<int> m = MTZDD<int>::from_zdd(f, 0, 1);

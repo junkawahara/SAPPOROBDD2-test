@@ -49,7 +49,7 @@ public:
     // Static factory methods
     static PiDD empty();   // Empty set
     static PiDD single();  // Identity permutation only
-    static PiDD single(int x, int y);  // Single transposition (x,y)
+    static PiDD singleton(int x, int y);  // Single transposition (x,y)
 
     // Set operations
     PiDD operator&(const PiDD& other) const;  // Intersection

@@ -165,7 +165,7 @@ PiDDの使用
    PiDD id = PiDD::single();
 
    // 転置 (1,2) を含む順列
-   PiDD trans12 = PiDD::single(1, 2);  // 1と2を交換
+   PiDD trans12 = PiDD::singleton(1, 2);  // 1と2を交換
 
    // 全ての順列を構築
    PiDD all_perms = PiDD::single();
@@ -206,7 +206,7 @@ PiDDによる順列群の操作
 
    // 巡回群 C4 を構築
    PiDD c4 = PiDD::single();  // 恒等置換
-   PiDD cycle = PiDD::single(1, 2) * PiDD::single(2, 3) * PiDD::single(3, 4);
+   PiDD cycle = PiDD::singleton(1, 2) * PiDD::singleton(2, 3) * PiDD::singleton(3, 4);
    c4 = c4 + cycle;
    c4 = c4 + cycle * cycle;
    c4 = c4 + cycle * cycle * cycle;
@@ -214,7 +214,7 @@ PiDDによる順列群の操作
    std::cout << "C4の位数: " << c4.card() << std::endl;
 
    // 対称群 S4 の部分群を生成
-   PiDD generators = PiDD::single(1, 2) + PiDD::single(1, 2) * PiDD::single(3, 4);
+   PiDD generators = PiDD::singleton(1, 2) + PiDD::singleton(1, 2) * PiDD::singleton(3, 4);
    PiDD subgroup = PiDD::single();
    PiDD prev;
    do {

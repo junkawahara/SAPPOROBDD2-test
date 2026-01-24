@@ -102,7 +102,7 @@ TEST_F(UnreducedZDDTest, Reduce) {
     UnreducedZDD s1 = UnreducedZDD::node(mgr, 1, empty, base);
 
     ZDD reduced = s1.reduce();
-    ZDD expected = ZDD::single(mgr, 1);
+    ZDD expected = ZDD::singleton(mgr, 1);
 
     EXPECT_EQ(reduced, expected);
 }
@@ -165,7 +165,7 @@ TEST_F(QDDTest, ToZDD) {
     QDD qdd = QDD::node(mgr, 1, zero, one);
     ZDD zdd = qdd.to_zdd();
 
-    EXPECT_EQ(zdd, ZDD::single(mgr, 1));
+    EXPECT_EQ(zdd, ZDD::singleton(mgr, 1));
 }
 
 // ============== SeqBDD Tests ==============
@@ -190,13 +190,13 @@ TEST_F(SeqBDDTest, Terminals) {
 }
 
 TEST_F(SeqBDDTest, Single) {
-    SeqBDD s1 = SeqBDD::single(mgr, 1);
+    SeqBDD s1 = SeqBDD::singleton(mgr, 1);
     EXPECT_EQ(s1.card(), 1.0);
 }
 
 TEST_F(SeqBDDTest, Union) {
-    SeqBDD s1 = SeqBDD::single(mgr, 1);
-    SeqBDD s2 = SeqBDD::single(mgr, 2);
+    SeqBDD s1 = SeqBDD::singleton(mgr, 1);
+    SeqBDD s2 = SeqBDD::singleton(mgr, 2);
 
     SeqBDD u = s1 + s2;
     EXPECT_EQ(u.card(), 2.0);
@@ -248,9 +248,9 @@ TEST_F(BDDCTTest, MinCost) {
     ct.set_cost(3, 7);
 
     // Create ZDD: {{1}, {2}, {3}}
-    ZDD z1 = ZDD::single(mgr, 1);
-    ZDD z2 = ZDD::single(mgr, 2);
-    ZDD z3 = ZDD::single(mgr, 3);
+    ZDD z1 = ZDD::singleton(mgr, 1);
+    ZDD z2 = ZDD::singleton(mgr, 2);
+    ZDD z3 = ZDD::singleton(mgr, 3);
     ZDD family = z1 + z2 + z3;
 
     bddcost min = ct.min_cost(family);
@@ -264,9 +264,9 @@ TEST_F(BDDCTTest, MaxCost) {
     ct.set_cost(2, 3);
     ct.set_cost(3, 7);
 
-    ZDD z1 = ZDD::single(mgr, 1);
-    ZDD z2 = ZDD::single(mgr, 2);
-    ZDD z3 = ZDD::single(mgr, 3);
+    ZDD z1 = ZDD::singleton(mgr, 1);
+    ZDD z2 = ZDD::singleton(mgr, 2);
+    ZDD z3 = ZDD::singleton(mgr, 3);
     ZDD family = z1 + z2 + z3;
 
     bddcost max = ct.max_cost(family);
@@ -302,7 +302,7 @@ TEST_F(IOTest, ToDotBDD) {
 }
 
 TEST_F(IOTest, ToDotZDD) {
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
     std::string dot = to_dot(s1, "test");
 
     EXPECT_FALSE(dot.empty());
@@ -329,8 +329,8 @@ TEST_F(IOTest, ExportImportBDD) {
 }
 
 TEST_F(IOTest, ExportImportZDD) {
-    ZDD s1 = ZDD::single(mgr, 1);
-    ZDD s2 = ZDD::single(mgr, 2);
+    ZDD s1 = ZDD::singleton(mgr, 1);
+    ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD f = s1 + s2;
 
     std::stringstream ss;
@@ -349,7 +349,7 @@ TEST_F(IOTest, ExportImportZDD) {
 
 TEST_F(IOTest, Validation) {
     BDD x1 = mgr.var_bdd(1);
-    ZDD s1 = ZDD::single(mgr, 1);
+    ZDD s1 = ZDD::singleton(mgr, 1);
 
     EXPECT_TRUE(validate_bdd(x1));
     EXPECT_TRUE(validate_zdd(s1));

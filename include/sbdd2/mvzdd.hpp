@@ -38,7 +38,7 @@ namespace sbdd2 {
  * f.new_var();  // MVDD変数2を作成
  *
  * // 単一要素: 変数1が値2を取る
- * MVZDD s = MVZDD::single(f, 1, 2);
+ * MVZDD s = MVZDD::singleton(f, 1, 2);
  *
  * // ITE構築
  * MVZDD t = MVZDD::ite(f, 1, {child0, child1, child2, child3});
@@ -117,7 +117,7 @@ public:
      * @param value 値 (0 to k-1)
      * @return {{(mv, value)}}
      */
-    static MVZDD single(const MVZDD& base, bddvar mv, int value);
+    static MVZDD singleton(const MVZDD& base, bddvar mv, int value);
 
     /// @}
 
@@ -327,7 +327,7 @@ private:
 
 // Implementation
 
-inline MVZDD MVZDD::single(const MVZDD& base, bddvar mv, int value) {
+inline MVZDD MVZDD::singleton(const MVZDD& base, bddvar mv, int value) {
     if (!base.is_valid()) {
         throw DDArgumentException("Base MVZDD is not valid");
     }
@@ -349,7 +349,7 @@ inline MVZDD MVZDD::single(const MVZDD& base, bddvar mv, int value) {
 
     // value=i (1 <= i <= k-1): x_{value}の1-arcを選択
     // 構築: 内部変数 dd_vars[value-1] を含む単一要素集合
-    ZDD result = ZDD::single(mgr, dd_vars[value - 1]);
+    ZDD result = ZDD::singleton(mgr, dd_vars[value - 1]);
 
     return MVZDD(base.manager_, base.var_table_, result);
 }

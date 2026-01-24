@@ -42,9 +42,9 @@ class UnreducedZDD;
  * mgr.new_var();
  *
  * // 単一要素集合 {1}, {2}, {3}
- * ZDD s1 = ZDD::single(mgr, 1);
- * ZDD s2 = ZDD::single(mgr, 2);
- * ZDD s3 = ZDD::single(mgr, 3);
+ * ZDD s1 = ZDD::singleton(mgr, 1);
+ * ZDD s2 = ZDD::singleton(mgr, 2);
+ * ZDD s3 = ZDD::singleton(mgr, 3);
  *
  * // 集合族の和: {{1}, {2}, {3}}
  * ZDD family = s1 + s2 + s3;
@@ -197,7 +197,7 @@ public:
      * @param v 要素番号
      * @return 集合族 {{v}}
      */
-    static ZDD single(DDManager& mgr, bddvar v);
+    static ZDD singleton(DDManager& mgr, bddvar v);
 
     /// @}
 

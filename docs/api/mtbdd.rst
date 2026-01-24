@@ -173,8 +173,8 @@ ZDDからの変換
    mgr.new_var();
    mgr.new_var();
 
-   ZDD s1 = ZDD::single(mgr, 1);
-   ZDD s2 = ZDD::single(mgr, 2);
+   ZDD s1 = ZDD::singleton(mgr, 1);
+   ZDD s2 = ZDD::singleton(mgr, 2);
    ZDD f = s1 + s2;  // {{1}, {2}}
 
    // ZDDをMTZDDに変換

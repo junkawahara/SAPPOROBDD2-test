@@ -75,13 +75,13 @@ PiDD PiDD::single() {
     return PiDD(ZDD::single(*manager_));
 }
 
-PiDD PiDD::single(int x, int y) {
+PiDD PiDD::singleton(int x, int y) {
     if (!manager_ || x <= 0 || y <= 0 || x == y) return PiDD();
     if (x < y) std::swap(x, y);
 
     int lev = level_of_xy(x, y);
     bddvar var = static_cast<bddvar>(lev);
-    return PiDD(ZDD::single(*manager_, var));
+    return PiDD(ZDD::singleton(*manager_, var));
 }
 
 // Set operations
@@ -127,7 +127,7 @@ PiDD PiDD::swap(int x, int y) const {
     if (x <= 0 || y <= 0 || x == y) return *this;
     if (x < y) std::swap(x, y);
 
-    PiDD swap_perm = single(x, y);
+    PiDD swap_perm = singleton(x, y);
     return *this * swap_perm;
 }
 
@@ -150,7 +150,7 @@ PiDD PiDD::odd() const {
             // Reconstruct PiDD for this permutation
             PiDD p = single();
             for (size_t i = 0; i + 1 < perm.size(); i += 2) {
-                p = p * single(perm[i], perm[i + 1]);
+                p = p * singleton(perm[i], perm[i + 1]);
             }
             result = result + p;
         }

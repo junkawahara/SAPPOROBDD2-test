@@ -51,7 +51,7 @@ TEST_F(MVZDDTest, SingleValue0) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 0);
+    MVZDD s = MVZDD::singleton(f, 1, 0);
     EXPECT_EQ(s.card(), 1.0);
 
     // Evaluation tests
@@ -65,7 +65,7 @@ TEST_F(MVZDDTest, SingleValue1) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 1);
+    MVZDD s = MVZDD::singleton(f, 1, 1);
     EXPECT_EQ(s.card(), 1.0);
 
     EXPECT_FALSE(s.evaluate({0}));
@@ -78,7 +78,7 @@ TEST_F(MVZDDTest, SingleValue2) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 2);
+    MVZDD s = MVZDD::singleton(f, 1, 2);
     EXPECT_EQ(s.card(), 1.0);
 
     EXPECT_FALSE(s.evaluate({0}));
@@ -91,7 +91,7 @@ TEST_F(MVZDDTest, SingleValueK1) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, k - 1);
+    MVZDD s = MVZDD::singleton(f, 1, k - 1);
     EXPECT_EQ(s.card(), 1.0);
 
     for (int i = 0; i < k; ++i) {
@@ -141,8 +141,8 @@ TEST_F(MVZDDTest, Union) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 2);
 
     MVZDD u = s1 + s2;
     EXPECT_EQ(u.card(), 2.0);
@@ -157,7 +157,7 @@ TEST_F(MVZDDTest, UnionWithEmpty) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 1);
+    MVZDD s = MVZDD::singleton(f, 1, 1);
     MVZDD empty = MVZDD(f.manager(), f.var_table(), ZDD::empty(mgr));
 
     MVZDD u = s + empty;
@@ -170,8 +170,8 @@ TEST_F(MVZDDTest, IntersectionDisjoint) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 2);
 
     // Intersection of disjoint sets is empty
     MVZDD i = s1 * s2;
@@ -182,8 +182,8 @@ TEST_F(MVZDDTest, IntersectionSame) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 1);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 1);
 
     MVZDD i = s1 * s2;
     EXPECT_EQ(i, s1);
@@ -195,8 +195,8 @@ TEST_F(MVZDDTest, Difference) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 2);
     MVZDD u = s1 + s2;
 
     MVZDD d = u - s1;
@@ -228,8 +228,8 @@ TEST_F(MVZDDTest, AllSat) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 2);
     MVZDD u = s1 + s2;
 
     auto sats = u.all_sat();
@@ -253,8 +253,8 @@ TEST_F(MVZDDTest, MultipleVariablesUnion) {
     f.new_var();
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 2, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 2, 2);
 
     // Union of single elements for different variables
     MVZDD u = s1 + s2;
@@ -267,7 +267,7 @@ TEST_F(MVZDDTest, ToFromZDD) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 2);
+    MVZDD s = MVZDD::singleton(f, 1, 2);
     ZDD z = s.to_zdd();
 
     MVZDD s2 = MVZDD::from_zdd(f, z);
@@ -280,7 +280,7 @@ TEST_F(MVZDDTest, NodeCount) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s = MVZDD::single(f, 1, 2);
+    MVZDD s = MVZDD::singleton(f, 1, 2);
 
     // Internal ZDD node count
     EXPECT_GE(s.size(), 1u);
@@ -295,16 +295,16 @@ TEST_F(MVZDDTest, InvalidValue) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    EXPECT_THROW(MVZDD::single(f, 1, -1), DDArgumentException);
-    EXPECT_THROW(MVZDD::single(f, 1, k), DDArgumentException);
+    EXPECT_THROW(MVZDD::singleton(f, 1, -1), DDArgumentException);
+    EXPECT_THROW(MVZDD::singleton(f, 1, k), DDArgumentException);
 }
 
 TEST_F(MVZDDTest, InvalidVariable) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    EXPECT_THROW(MVZDD::single(f, 0, 1), DDArgumentException);
-    EXPECT_THROW(MVZDD::single(f, 2, 1), DDArgumentException);  // Only 1 var created
+    EXPECT_THROW(MVZDD::singleton(f, 0, 1), DDArgumentException);
+    EXPECT_THROW(MVZDD::singleton(f, 2, 1), DDArgumentException);  // Only 1 var created
 }
 
 // --- Different k values ---
@@ -333,8 +333,8 @@ TEST_F(MVZDDTest, CompoundAssignment) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD s1 = MVZDD::single(f, 1, 1);
-    MVZDD s2 = MVZDD::single(f, 1, 2);
+    MVZDD s1 = MVZDD::singleton(f, 1, 1);
+    MVZDD s2 = MVZDD::singleton(f, 1, 2);
 
     MVZDD u = s1;
     u += s2;

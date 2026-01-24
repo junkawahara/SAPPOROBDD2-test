@@ -77,7 +77,7 @@ SAPPOROBDD 2.0 distinguishes between **variable number** and **level**.
 ### Variable Number
 - Unique identifier for each variable (assigned sequentially from 1)
 - Never changes after creation
-- Used in API calls: `var_bdd(v)`, `ZDD::single(mgr, v)`
+- Used in API calls: `var_bdd(v)`, `ZDD::singleton(mgr, v)`
 
 ### Level
 - Position in the decision diagram (ordering)

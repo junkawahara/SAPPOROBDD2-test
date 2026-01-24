@@ -68,10 +68,10 @@ MVDD 変数のマッピングを管理するテーブル。
    bddvar mv2 = f.new_var();  // 変数2
 
    // 単一要素: 変数1が値2を取る
-   MVZDD s1 = MVZDD::single(f, 1, 2);
+   MVZDD s1 = MVZDD::singleton(f, 1, 2);
 
    // 単一要素: 変数2が値1を取る
-   MVZDD s2 = MVZDD::single(f, 2, 1);
+   MVZDD s2 = MVZDD::singleton(f, 2, 1);
 
    // 集合族演算
    MVZDD u = s1 + s2;  // 和集合
@@ -117,8 +117,8 @@ ITE による構築
    f.new_var();
    f.new_var();
 
-   MVZDD s1 = MVZDD::single(f, 1, 1);
-   MVZDD s2 = MVZDD::single(f, 1, 2);
+   MVZDD s1 = MVZDD::singleton(f, 1, 1);
+   MVZDD s2 = MVZDD::singleton(f, 1, 2);
    MVZDD u = s1 + s2;
 
    // 評価: 割り当てが集合族に含まれるか
@@ -190,7 +190,7 @@ MVBDD の ITE 構築
    MVZDD f = MVZDD::empty(mgr, 4);
    f.new_var();
 
-   MVZDD s = MVZDD::single(f, 1, 2);
+   MVZDD s = MVZDD::singleton(f, 1, 2);
 
    // 内部 ZDD を取得
    ZDD z = s.to_zdd();
@@ -267,7 +267,7 @@ MVBDD の ITE 構築
    MVZDD f = MVZDD::empty(mgr, 4);
    f.new_var();
 
-   MVZDD s = MVZDD::single(f, 1, 2);
+   MVZDD s = MVZDD::singleton(f, 1, 2);
 
    // 内部 ZDD ノード数
    std::size_t internal_nodes = s.size();
