@@ -79,7 +79,7 @@ protected:
 
 TEST_F(UnreducedZDDTest, Terminals) {
     UnreducedZDD empty = UnreducedZDD::empty(mgr);
-    UnreducedZDD base = UnreducedZDD::base(mgr);
+    UnreducedZDD base = UnreducedZDD::single(mgr);
 
     EXPECT_TRUE(empty.is_zero());
     EXPECT_TRUE(base.is_one());
@@ -87,7 +87,7 @@ TEST_F(UnreducedZDDTest, Terminals) {
 
 TEST_F(UnreducedZDDTest, CreateNode) {
     UnreducedZDD empty = UnreducedZDD::empty(mgr);
-    UnreducedZDD base = UnreducedZDD::base(mgr);
+    UnreducedZDD base = UnreducedZDD::single(mgr);
 
     UnreducedZDD node = UnreducedZDD::node(mgr, 1, empty, base);
     EXPECT_FALSE(node.is_terminal());
@@ -96,7 +96,7 @@ TEST_F(UnreducedZDDTest, CreateNode) {
 
 TEST_F(UnreducedZDDTest, Reduce) {
     UnreducedZDD empty = UnreducedZDD::empty(mgr);
-    UnreducedZDD base = UnreducedZDD::base(mgr);
+    UnreducedZDD base = UnreducedZDD::single(mgr);
 
     // Create {1}
     UnreducedZDD s1 = UnreducedZDD::node(mgr, 1, empty, base);
@@ -109,7 +109,7 @@ TEST_F(UnreducedZDDTest, Reduce) {
 
 TEST_F(UnreducedZDDTest, ZDDReduction) {
     UnreducedZDD empty = UnreducedZDD::empty(mgr);
-    UnreducedZDD base = UnreducedZDD::base(mgr);
+    UnreducedZDD base = UnreducedZDD::single(mgr);
 
     // Create redundant ZDD node: high = empty (should be reduced away)
     UnreducedZDD redundant = UnreducedZDD::node(mgr, 1, base, empty);
@@ -183,7 +183,7 @@ protected:
 
 TEST_F(SeqBDDTest, Terminals) {
     SeqBDD empty = SeqBDD::empty(mgr);
-    SeqBDD base = SeqBDD::base(mgr);
+    SeqBDD base = SeqBDD::single(mgr);
 
     EXPECT_EQ(empty.card(), 0.0);
     EXPECT_EQ(base.card(), 1.0);
@@ -203,7 +203,7 @@ TEST_F(SeqBDDTest, Union) {
 }
 
 TEST_F(SeqBDDTest, Push) {
-    SeqBDD base = SeqBDD::base(mgr);
+    SeqBDD base = SeqBDD::single(mgr);
     SeqBDD s1 = base.push(1);
 
     EXPECT_EQ(s1.card(), 1.0);

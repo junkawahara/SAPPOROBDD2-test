@@ -48,7 +48,7 @@ public:
 
     // Static factory methods
     static PiDD empty();   // Empty set
-    static PiDD base();    // Identity permutation only
+    static PiDD single();  // Identity permutation only
     static PiDD single(int x, int y);  // Single transposition (x,y)
 
     // Set operations

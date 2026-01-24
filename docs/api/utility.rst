@@ -330,7 +330,7 @@ BDDCTによるコスト制約付き列挙
    ct.set_label(5, "item_E");
 
    // 全部分集合を作成
-   ZDD all = ZDD::base(mgr);
+   ZDD all = ZDD::single(mgr);
    for (int i = 1; i <= 5; ++i) {
        all = all + all.product(ZDD::single(mgr, i));
    }

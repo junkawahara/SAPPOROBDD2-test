@@ -30,7 +30,7 @@ namespace sbdd2 {
  */
 template<typename Container>
 ZDD get_power_set(DDManager& mgr, const Container& variables) {
-    ZDD result = ZDD::base(mgr);  // Start with empty set
+    ZDD result = ZDD::single(mgr);  // Start with empty set
     for (const auto& v : variables) {
         // For each variable, add both with and without it
         result = result + result.change(static_cast<bddvar>(v));
@@ -69,11 +69,11 @@ ZDD get_power_set_with_card(DDManager& mgr, const Container& variables, int k) {
         return ZDD::empty(mgr);
     }
     if (k == 0) {
-        return ZDD::base(mgr);  // Only empty set
+        return ZDD::single(mgr);  // Only empty set
     }
     if (k == n) {
         // Only full set
-        ZDD result = ZDD::base(mgr);
+        ZDD result = ZDD::single(mgr);
         for (bddvar v : vars) {
             result = result.change(v);
         }
@@ -85,7 +85,7 @@ ZDD get_power_set_with_card(DDManager& mgr, const Container& variables, int k) {
     std::vector<ZDD> prev(k + 1, ZDD::empty(mgr));
     std::vector<ZDD> curr(k + 1, ZDD::empty(mgr));
 
-    prev[0] = ZDD::base(mgr);
+    prev[0] = ZDD::single(mgr);
 
     for (int i = 0; i < n; ++i) {
         bddvar v = vars[i];
@@ -136,7 +136,7 @@ ZDD get_single_set(DDManager& mgr, const Container& variables) {
         unique_vars.insert(static_cast<bddvar>(v));
     }
 
-    ZDD result = ZDD::base(mgr);  // Start with empty set
+    ZDD result = ZDD::single(mgr);  // Start with empty set
     for (bddvar v : unique_vars) {
         result = result.change(v);
     }
@@ -294,7 +294,7 @@ template<typename RNG>
 ZDD get_uniformly_random_zdd(DDManager& mgr, int level, RNG& rng) {
     if (level <= 0) {
         std::uniform_int_distribution<int> dist(0, 1);
-        return dist(rng) ? ZDD::base(mgr) : ZDD::empty(mgr);
+        return dist(rng) ? ZDD::single(mgr) : ZDD::empty(mgr);
     }
 
     std::uniform_int_distribution<int> dist(0, 1);
@@ -332,7 +332,7 @@ ZDD get_random_zdd_with_card(DDManager& mgr, int level, long long card, RNG& rng
         return ZDD::empty(mgr);
     }
     if (level <= 0) {
-        return ZDD::base(mgr);
+        return ZDD::single(mgr);
     }
 
     ZDD result = ZDD::empty(mgr);
@@ -340,7 +340,7 @@ ZDD get_random_zdd_with_card(DDManager& mgr, int level, long long card, RNG& rng
 
     while (static_cast<long long>(result.card()) < card) {
         // Generate a random set
-        ZDD new_set = ZDD::base(mgr);
+        ZDD new_set = ZDD::single(mgr);
         for (int i = 1; i <= level; ++i) {
             if (var_dist(rng) <= level / 2) {
                 new_set = new_set.change(static_cast<bddvar>(i));

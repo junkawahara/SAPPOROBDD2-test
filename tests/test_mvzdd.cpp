@@ -24,7 +24,7 @@ TEST_F(MVZDDTest, Empty) {
 }
 
 TEST_F(MVZDDTest, Base) {
-    MVZDD f = MVZDD::base(mgr, k);
+    MVZDD f = MVZDD::single(mgr, k);
     EXPECT_TRUE(f.is_base());
     EXPECT_EQ(f.card(), 1.0);
 }
@@ -105,7 +105,7 @@ TEST_F(MVZDDTest, IteAllBase) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD base = MVZDD::base(mgr, k);
+    MVZDD base = MVZDD::single(mgr, k);
     base = MVZDD(base.manager(), f.var_table(), base.to_zdd());
 
     // All children are base -> all assignments should be true
@@ -121,7 +121,7 @@ TEST_F(MVZDDTest, IteSelectiveChildren) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD base = MVZDD::base(mgr, k);
+    MVZDD base = MVZDD::single(mgr, k);
     base = MVZDD(base.manager(), f.var_table(), base.to_zdd());
     MVZDD empty = MVZDD(f.manager(), f.var_table(), ZDD::empty(mgr));
 
@@ -209,7 +209,7 @@ TEST_F(MVZDDTest, ChildAccess) {
     MVZDD f = MVZDD::empty(mgr, k);
     f.new_var();
 
-    MVZDD base = MVZDD::base(mgr, k);
+    MVZDD base = MVZDD::single(mgr, k);
     base = MVZDD(base.manager(), f.var_table(), base.to_zdd());
     MVZDD empty = MVZDD(f.manager(), f.var_table(), ZDD::empty(mgr));
 

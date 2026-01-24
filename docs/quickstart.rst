@@ -147,4 +147,4 @@ ZDDの操作
 
    // ZDD終端
    ZDD empty_family = ZDD::empty(mgr);  // 空集合族 ∅
-   ZDD base_family = ZDD::base(mgr);    // 基底 {∅}
+   ZDD single_family = ZDD::single(mgr);  // 単一集合族 {∅}

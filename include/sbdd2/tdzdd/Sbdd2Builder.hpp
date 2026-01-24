@@ -65,7 +65,7 @@ UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
         return UnreducedZDD::empty(mgr);
     }
     if (rootLevel < 0) {
-        return UnreducedZDD::base(mgr);
+        return UnreducedZDD::single(mgr);
     }
 
     // Ensure variables exist
@@ -419,7 +419,7 @@ MVZDD build_mvzdd(DDManager& mgr, SPEC& spec) {
         return base_mvzdd;  // Empty set
     }
     if (rootLevel < 0) {
-        return MVZDD::base(mgr, ARITY);  // Base set
+        return MVZDD::single(mgr, ARITY);  // Base set
     }
 
     // Pre-create MVDD variables for all levels
@@ -431,7 +431,7 @@ MVZDD build_mvzdd(DDManager& mgr, SPEC& spec) {
     MVZDD empty_mvzdd = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
                                ZDD::empty(mgr));
     MVZDD base_term = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
-                             ZDD::base(mgr));
+                             ZDD::single(mgr));
 
     // Data structures
     std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
@@ -710,7 +710,7 @@ MVZDD build_mvzdd_va(DDManager& mgr, SPEC& spec) {
         return base_mvzdd;  // Empty set
     }
     if (rootLevel < 0) {
-        return MVZDD::base(mgr, ARITY);  // Base set
+        return MVZDD::single(mgr, ARITY);  // Base set
     }
 
     // Pre-create MVDD variables for all levels
@@ -722,7 +722,7 @@ MVZDD build_mvzdd_va(DDManager& mgr, SPEC& spec) {
     MVZDD empty_mvzdd = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
                                ZDD::empty(mgr));
     MVZDD base_term = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
-                             ZDD::base(mgr));
+                             ZDD::single(mgr));
 
     // Data structures
     std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);

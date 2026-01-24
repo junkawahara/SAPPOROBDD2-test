@@ -212,7 +212,7 @@ ZDD GBase::simpath_rec(GBEdge e, GBVertex start, GBVertex end,
             }
         }
 
-        return valid ? ZDD::base(*manager_) : ZDD::empty(*manager_);
+        return valid ? ZDD::single(*manager_) : ZDD::empty(*manager_);
     }
 
     GBVertex v1 = edges_[e].endpoints[0];

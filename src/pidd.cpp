@@ -70,9 +70,9 @@ PiDD PiDD::empty() {
     return PiDD(ZDD::empty(*manager_));
 }
 
-PiDD PiDD::base() {
+PiDD PiDD::single() {
     if (!manager_) return PiDD();
-    return PiDD(ZDD::base(*manager_));
+    return PiDD(ZDD::single(*manager_));
 }
 
 PiDD PiDD::single(int x, int y) {
@@ -148,7 +148,7 @@ PiDD PiDD::odd() const {
     for (const auto& perm : perms) {
         if (perm.size() % 2 == 1) {
             // Reconstruct PiDD for this permutation
-            PiDD p = base();
+            PiDD p = single();
             for (size_t i = 0; i + 1 < perm.size(); i += 2) {
                 p = p * single(perm[i], perm[i + 1]);
             }

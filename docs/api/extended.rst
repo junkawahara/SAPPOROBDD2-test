@@ -162,13 +162,13 @@ PiDDの使用
    PiDD::new_var();
 
    // 恒等順列
-   PiDD id = PiDD::base();
+   PiDD id = PiDD::single();
 
    // 転置 (1,2) を含む順列
    PiDD trans12 = PiDD::single(1, 2);  // 1と2を交換
 
    // 全ての順列を構築
-   PiDD all_perms = PiDD::base();
+   PiDD all_perms = PiDD::single();
    for (int i = 1; i <= PiDD::var_used(); ++i) {
        for (int j = i + 1; j <= PiDD::var_used(); ++j) {
            all_perms = all_perms + all_perms * PiDD::single(i, j);
@@ -205,7 +205,7 @@ PiDDによる順列群の操作
    for (int i = 0; i < 4; ++i) PiDD::new_var();
 
    // 巡回群 C4 を構築
-   PiDD c4 = PiDD::base();  // 恒等置換
+   PiDD c4 = PiDD::single();  // 恒等置換
    PiDD cycle = PiDD::single(1, 2) * PiDD::single(2, 3) * PiDD::single(3, 4);
    c4 = c4 + cycle;
    c4 = c4 + cycle * cycle;
@@ -215,7 +215,7 @@ PiDDによる順列群の操作
 
    // 対称群 S4 の部分群を生成
    PiDD generators = PiDD::single(1, 2) + PiDD::single(1, 2) * PiDD::single(3, 4);
-   PiDD subgroup = PiDD::base();
+   PiDD subgroup = PiDD::single();
    PiDD prev;
    do {
        prev = subgroup;

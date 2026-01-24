@@ -24,7 +24,7 @@ ZDD ZDD::empty(DDManager& mgr) {
     return mgr.zdd_empty();
 }
 
-ZDD ZDD::base(DDManager& mgr) {
+ZDD ZDD::single(DDManager& mgr) {
     return mgr.zdd_base();
 }
 
@@ -1048,7 +1048,7 @@ ZDD ZDD::sym_grp() const {
         if (group.card() > 1) {
             // Convert group to a set representation
             std::vector<bddvar> group_vars = group.one_set();
-            ZDD group_set = ZDD::base(*manager_);
+            ZDD group_set = ZDD::single(*manager_);
             for (bddvar gv : group_vars) {
                 group_set = group_set.change(gv);
             }
@@ -1113,7 +1113,7 @@ ZDD ZDD::sym_grp_naive() const {
                 break;
             }
         }
-        ZDD group_set = ZDD::base(*manager_);
+        ZDD group_set = ZDD::single(*manager_);
         for (bddvar gv : gvars) {
             group_set = group_set.change(gv);
         }
@@ -1327,7 +1327,7 @@ int ZDD::is_poly() const {
 // Get divisor (minimal element)
 ZDD ZDD::divisor() const {
     if (!manager_) return *this;
-    if (!is_poly()) return ZDD::base(*manager_);
+    if (!is_poly()) return ZDD::single(*manager_);
 
     ZDD f = *this;
     ZDD support = zdd_support(manager_, arc_);

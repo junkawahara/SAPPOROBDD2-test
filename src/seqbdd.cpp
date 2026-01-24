@@ -13,8 +13,8 @@ SeqBDD SeqBDD::empty(DDManager& mgr) {
     return SeqBDD(ZDD::empty(mgr));
 }
 
-SeqBDD SeqBDD::base(DDManager& mgr) {
-    return SeqBDD(ZDD::base(mgr));
+SeqBDD SeqBDD::single(DDManager& mgr) {
+    return SeqBDD(ZDD::single(mgr));
 }
 
 SeqBDD SeqBDD::single(DDManager& mgr, bddvar v) {

@@ -278,7 +278,7 @@ ZDD build_zdd_dfs(DDManager& mgr, SPEC& spec) {
         return ZDD::empty(mgr);
     }
     if (rootLevel < 0) {
-        return ZDD::base(mgr);
+        return ZDD::single(mgr);
     }
 
     // Ensure variables exist

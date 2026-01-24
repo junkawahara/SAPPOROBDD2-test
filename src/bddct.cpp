@@ -219,7 +219,7 @@ ZDD BDDCT::zdd_cost_le(const ZDD& f, bddcost bound,
     if (f.is_one()) {
         actual_weight = 0;
         reduced_bound = bound;
-        return (bound >= 0) ? ZDD::base(*manager_) : ZDD::empty(*manager_);
+        return (bound >= 0) ? ZDD::single(*manager_) : ZDD::empty(*manager_);
     }
 
     // Check cache
@@ -275,7 +275,7 @@ ZDD BDDCT::zdd_cost_le0(const ZDD& f, bddcost bound) {
     if (!manager_ || !f.manager()) return ZDD();
 
     if (f.is_zero()) return ZDD::empty(*manager_);
-    if (f.is_one()) return (bound >= 0) ? ZDD::base(*manager_) : ZDD::empty(*manager_);
+    if (f.is_one()) return (bound >= 0) ? ZDD::single(*manager_) : ZDD::empty(*manager_);
 
     bddvar top = f.top();
     bddcost c = cost(static_cast<int>(top));

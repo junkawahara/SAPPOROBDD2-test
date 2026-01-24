@@ -99,14 +99,14 @@ public:
     }
 
     /**
-     * @brief 基底集合族を作成
+     * @brief 単一集合族（1終端）を作成
      * @param mgr DDマネージャー
      * @param k 値域サイズ
      * @return 空集合のみを含むMVZDD {()}
      */
-    static MVZDD base(DDManager& mgr, int k) {
+    static MVZDD single(DDManager& mgr, int k) {
         MVZDD result(&mgr, k);
-        result.zdd_ = ZDD::base(mgr);
+        result.zdd_ = ZDD::single(mgr);
         return result;
     }
 
@@ -343,8 +343,8 @@ inline MVZDD MVZDD::single(const MVZDD& base, bddvar mv, int value) {
     int k = base.k();
 
     if (value == 0) {
-        // value=0: 全ての内部変数の0-arcをたどる -> base（空集合を含む）
-        return MVZDD(base.manager_, base.var_table_, ZDD::base(mgr));
+        // value=0: 全ての内部変数の0-arcをたどる -> single（空集合を含む）
+        return MVZDD(base.manager_, base.var_table_, ZDD::single(mgr));
     }
 
     // value=i (1 <= i <= k-1): x_{value}の1-arcを選択

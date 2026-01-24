@@ -63,7 +63,7 @@ ZDDによる組合せ列挙
        }
 
        // 全ての部分集合から開始
-       ZDD all = ZDD::base(mgr);  // {∅}
+       ZDD all = ZDD::single(mgr);  // {∅}
        for (int i = 1; i <= 4; ++i) {
            ZDD with_i = all.product(ZDD::single(mgr, i));
            all = all + with_i;  // iを含む/含まないを選択
@@ -145,7 +145,7 @@ BDDCTによるコスト制約付き列挙
        ct.set_cost(5, 30);  // アイテム5のコスト: 30
 
        // 全ての部分集合を作成
-       ZDD all = ZDD::base(mgr);
+       ZDD all = ZDD::single(mgr);
        for (int i = 1; i <= 5; ++i) {
            all = all + all.product(ZDD::single(mgr, i));
        }

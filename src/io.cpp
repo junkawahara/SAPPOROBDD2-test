@@ -1009,9 +1009,9 @@ ZDD import_zdd_as_libbdd(DDManager& mgr, std::istream& is) {
     // Only terminals
     if (nodes.size() <= 2) {
         if (nodes.size() == 1) {
-            return nodes[0].is_true() ? ZDD::base(mgr) : ZDD::empty(mgr);
+            return nodes[0].is_true() ? ZDD::single(mgr) : ZDD::empty(mgr);
         }
-        return ZDD::base(mgr);
+        return ZDD::single(mgr);
     }
 
     // Build mapping from lib_bdd index to Arc

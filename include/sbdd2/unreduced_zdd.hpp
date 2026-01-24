@@ -42,7 +42,7 @@ public:
 
     // Static factory methods
     static UnreducedZDD empty(DDManager& mgr);
-    static UnreducedZDD base(DDManager& mgr);
+    static UnreducedZDD single(DDManager& mgr);
 
     // Create node without reduction (allows redundant nodes)
     static UnreducedZDD node(DDManager& mgr, bddvar var,

@@ -31,7 +31,7 @@ public:
 
     // Static factory methods
     static SeqBDD empty(DDManager& mgr);   // Empty set
-    static SeqBDD base(DDManager& mgr);    // Empty sequence only
+    static SeqBDD single(DDManager& mgr);  // Empty sequence only
     static SeqBDD single(DDManager& mgr, bddvar v);  // Single element sequence
 
     // Set operations

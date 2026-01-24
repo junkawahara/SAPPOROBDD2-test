@@ -90,7 +90,7 @@ ITE による構築
    MVZDD f = MVZDD::empty(mgr, 4);
    f.new_var();
 
-   MVZDD base = MVZDD::base(mgr, 4);
+   MVZDD base = MVZDD::single(mgr, 4);
    base = MVZDD(base.manager(), f.var_table(), base.to_zdd());
    MVZDD empty_zdd = MVZDD(f.manager(), f.var_table(), ZDD::empty(mgr));
 

@@ -21,7 +21,7 @@ protected:
 
 TEST_F(ZDDTest, Terminals) {
     ZDD empty = ZDD::empty(mgr);
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
 
     EXPECT_TRUE(empty.is_zero());
     EXPECT_TRUE(base.is_one());
@@ -110,7 +110,7 @@ TEST_F(ZDDTest, OnsetOffset) {
 }
 
 TEST_F(ZDDTest, Change) {
-    ZDD base = ZDD::base(mgr);  // {{}}
+    ZDD base = ZDD::single(mgr);  // {{}}
 
     // Toggle 1 on {{}} = {{1}}
     ZDD c = base.change(1);
@@ -123,7 +123,7 @@ TEST_F(ZDDTest, Change) {
 TEST_F(ZDDTest, Product) {
     ZDD s1 = ZDD::single(mgr, 1);
     ZDD s2 = ZDD::single(mgr, 2);
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
 
     // {1} * base = {1} (cross product with empty set)
     EXPECT_EQ(s1.product(base), s1);
@@ -222,7 +222,7 @@ TEST_F(ZDDTest, ComplexFamily) {
     // Create a family representing power set of {1,2}
     // P({1,2}) = {{}, {1}, {2}, {1,2}}
 
-    ZDD base = ZDD::base(mgr);          // {{}}
+    ZDD base = ZDD::single(mgr);          // {{}}
     ZDD s1 = ZDD::single(mgr, 1);       // {{1}}
     ZDD s2 = ZDD::single(mgr, 2);       // {{2}}
     ZDD s12 = s1.product(s2);           // {{1,2}}
@@ -277,7 +277,7 @@ TEST_F(ZDDTest, Shift) {
 
 TEST_F(ZDDTest, PermitSym) {
     // Create a power set
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
     ZDD s1 = ZDD::single(mgr, 1);
     ZDD s2 = ZDD::single(mgr, 2);
     ZDD s12 = s1.product(s2);
@@ -467,7 +467,7 @@ TEST(ZDDLevelTest, MeetWithDifferentLevels) {
     // Create sets
     ZDD s1 = ZDD::single(mgr, v1);  // {{v1}}
     ZDD s3 = ZDD::single(mgr, v3);  // {{v3}}
-    ZDD base = ZDD::base(mgr);      // {{}}
+    ZDD base = ZDD::single(mgr);      // {{}}
 
     // Meet of {{v1}} and {{v3}} should be {{}}
     ZDD m = zdd_meet(s1, s3);
@@ -487,7 +487,7 @@ TEST(ZDDExactCountTest, MatchesCard) {
     EXPECT_EQ(empty.exact_count(), "0");
 
     // Base (single empty set)
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
     EXPECT_EQ(base.exact_count(), "1");
 
     // Single element
@@ -546,7 +546,7 @@ protected:
 
 TEST_F(ZDDIndexTest, EmptyAndBase) {
     ZDD empty = ZDD::empty(mgr);
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
 
     // Empty set
     EXPECT_FALSE(empty.has_index());
@@ -606,7 +606,7 @@ TEST_F(ZDDIndexTest, MatchesCard) {
     ZDD u12 = s1 + s2;
     ZDD u123 = s1 + s2 + s3;
     ZDD prod = s1.product(s2);
-    ZDD complex = (s1 + s2).product(s3) + ZDD::base(mgr);
+    ZDD complex = (s1 + s2).product(s3) + ZDD::single(mgr);
 
     EXPECT_EQ(u12.indexed_count(), u12.card());
     EXPECT_EQ(u123.indexed_count(), u123.card());
@@ -665,7 +665,7 @@ TEST_F(ZDDIndexTest, ExactCountEmpty) {
     ZDD empty = ZDD::empty(mgr);
     EXPECT_EQ(empty.indexed_exact_count(), "0");
 
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
     EXPECT_EQ(base.indexed_exact_count(), "1");
 }
 #endif
@@ -673,7 +673,7 @@ TEST_F(ZDDIndexTest, ExactCountEmpty) {
 // ============== Dictionary Order Tests ==============
 
 TEST_F(ZDDIndexTest, OrderOfEmptySet) {
-    ZDD base = ZDD::base(mgr);  // {{}}
+    ZDD base = ZDD::single(mgr);  // {{}}
     std::set<bddvar> empty_set;
     EXPECT_EQ(base.order_of(empty_set), 0);
 
@@ -790,7 +790,7 @@ TEST_F(ZDDIndexTest, MinWeightSimple) {
 }
 
 TEST_F(ZDDIndexTest, MaxWeightWithEmptySet) {
-    ZDD base = ZDD::base(mgr);  // {{}}
+    ZDD base = ZDD::single(mgr);  // {{}}
     ZDD s1 = ZDD::single(mgr, 1);
     ZDD u = base + s1;  // {{}, {1}}
 
@@ -885,7 +885,7 @@ TEST_F(ZDDIndexTest, SampleRandomlyEmpty) {
 }
 
 TEST_F(ZDDIndexTest, SampleRandomlyBase) {
-    ZDD base = ZDD::base(mgr);
+    ZDD base = ZDD::single(mgr);
 
     std::mt19937 rng(42);
     std::set<bddvar> result = base.sample_randomly(rng);
@@ -992,7 +992,7 @@ TEST_F(ZDDIndexTest, DictIteratorEmpty) {
 }
 
 TEST_F(ZDDIndexTest, DictIteratorBase) {
-    ZDD base = ZDD::base(mgr);  // {{}}
+    ZDD base = ZDD::single(mgr);  // {{}}
 
     std::vector<std::set<bddvar>> results;
     for (auto it = base.dict_begin(); it != base.dict_end(); ++it) {

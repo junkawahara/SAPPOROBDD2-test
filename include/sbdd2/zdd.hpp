@@ -185,11 +185,11 @@ public:
     static ZDD empty(DDManager& mgr);
 
     /**
-     * @brief 基底集合族を作成
+     * @brief 単一集合族（1終端）を作成
      * @param mgr DDマネージャー
-     * @return 基底集合族 {∅}（空集合のみを含む）
+     * @return 単一集合族 {∅}（空集合のみを含む）
      */
-    static ZDD base(DDManager& mgr);
+    static ZDD single(DDManager& mgr);
 
     /**
      * @brief 単一要素集合を作成

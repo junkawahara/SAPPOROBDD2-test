@@ -136,7 +136,7 @@ WeightIterator& WeightIterator::operator++() {
 
     // Remove current set from remaining
     // Create a ZDD representing the single set {current_}
-    ZDD single_set = ZDD::base(*remaining_->manager());
+    ZDD single_set = ZDD::single(*remaining_->manager());
     for (bddvar v : current_) {
         ZDD var_zdd = ZDD::single(*remaining_->manager(), v);
         single_set = single_set.product(var_zdd);
@@ -234,7 +234,7 @@ RandomIterator& RandomIterator::operator++() {
     }
 
     // Remove current set from remaining
-    ZDD single_set = ZDD::base(*remaining_->manager());
+    ZDD single_set = ZDD::single(*remaining_->manager());
     for (bddvar v : current_) {
         ZDD var_zdd = ZDD::single(*remaining_->manager(), v);
         single_set = single_set.product(var_zdd);

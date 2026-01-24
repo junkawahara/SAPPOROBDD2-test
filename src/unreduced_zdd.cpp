@@ -14,7 +14,7 @@ UnreducedZDD UnreducedZDD::empty(DDManager& mgr) {
     return UnreducedZDD(&mgr, ARC_TERMINAL_0);
 }
 
-UnreducedZDD UnreducedZDD::base(DDManager& mgr) {
+UnreducedZDD UnreducedZDD::single(DDManager& mgr) {
     return UnreducedZDD(&mgr, ARC_TERMINAL_1);
 }
 
