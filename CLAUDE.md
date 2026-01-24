@@ -18,11 +18,19 @@ SAPPOROBDD2/
 ├── src/               # Source files
 ├── tests/             # Google Test unit tests
 ├── docs/              # Sphinx + Breathe documentation
-├── build/             # Build directory
-└── vendor/            # Reference libraries (gitignored)
-    ├── SAPPOROBDD-plus-plus/  # Original library
-    └── sbdd_helper/           # Helper library
+└── build/             # Build directory
 ```
+
+### Related Projects (in parent directory)
+
+Previously, graphillion, reference libraries, and benchmark tools were bundled in `vendor/`. They are now located in the parent directory as independent projects:
+
+- `SAPPOROBDD-plus-plus/` - Original library (reference)
+- `sbdd_helper/` - Helper library (reference, already integrated)
+- `TdZdd/` - Top-down DD library (reference, partially integrated)
+- `graphillion/` - Graph set library using SAPPOROBDD2 (separate development)
+- `pysapporobdd/` - Python bindings for old SAPPOROBDD (not migrating)
+- `bdd-benchmark/` - BDD benchmark tools
 
 ## Main Classes
 
@@ -135,5 +143,5 @@ See `next_impl.md` for potential future items:
 ## References
 
 - `SAPPOROBDD_2.0_design.md` - Design specification
-- `vendor/SAPPOROBDD-plus-plus/` - Original library (API reference)
-- `vendor/sbdd_helper/` - Helper library (API reference)
+- `../SAPPOROBDD-plus-plus/` - Original library (API reference)
+- `../sbdd_helper/` - Helper library (API reference)
