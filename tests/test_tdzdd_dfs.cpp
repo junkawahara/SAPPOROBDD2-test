@@ -875,7 +875,7 @@ TEST_F(TdZddDFSTest, ZddOperationsOnDfsResult) {
     EXPECT_DOUBLE_EQ(union_result.card(), 20.0);
 
     // Intersection: C(5,2) ∩ C(5,3) = 0 (no overlap)
-    ZDD intersect_result = zdd1 * zdd2;
+    ZDD intersect_result = zdd1 & zdd2;
     EXPECT_DOUBLE_EQ(intersect_result.card(), 0.0);
 }
 

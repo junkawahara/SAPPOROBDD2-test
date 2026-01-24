@@ -174,7 +174,7 @@ TEST_F(MVZDDTest, IntersectionDisjoint) {
     MVZDD s2 = MVZDD::singleton(f, 1, 2);
 
     // Intersection of disjoint sets is empty
-    MVZDD i = s1 * s2;
+    MVZDD i = s1 & s2;
     EXPECT_TRUE(i.is_empty());
 }
 
@@ -185,7 +185,7 @@ TEST_F(MVZDDTest, IntersectionSame) {
     MVZDD s1 = MVZDD::singleton(f, 1, 1);
     MVZDD s2 = MVZDD::singleton(f, 1, 1);
 
-    MVZDD i = s1 * s2;
+    MVZDD i = s1 & s2;
     EXPECT_EQ(i, s1);
 }
 

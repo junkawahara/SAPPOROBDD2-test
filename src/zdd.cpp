@@ -340,7 +340,7 @@ ZDD ZDD::operator-(const ZDD& other) const {
     return ZDD(manager_, result);
 }
 
-ZDD ZDD::operator*(const ZDD& other) const {
+ZDD ZDD::operator&(const ZDD& other) const {
     if (!manager_ || !other.manager_ || manager_ != other.manager_) {
         throw DDIncompatibleException("ZDD managers do not match");
     }
@@ -447,8 +447,8 @@ ZDD& ZDD::operator-=(const ZDD& other) {
     return *this;
 }
 
-ZDD& ZDD::operator*=(const ZDD& other) {
-    *this = *this * other;
+ZDD& ZDD::operator&=(const ZDD& other) {
+    *this = *this & other;
     return *this;
 }
 

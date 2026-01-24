@@ -23,7 +23,7 @@ SeqBDD SeqBDD::singleton(DDManager& mgr, bddvar v) {
 
 // Set operations
 SeqBDD SeqBDD::operator&(const SeqBDD& other) const {
-    return SeqBDD(zdd_ * other.zdd_);
+    return SeqBDD(zdd_ & other.zdd_);
 }
 
 SeqBDD SeqBDD::operator+(const SeqBDD& other) const {

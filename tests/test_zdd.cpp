@@ -60,15 +60,15 @@ TEST_F(ZDDTest, IntersectionOperation) {
     ZDD s2 = ZDD::singleton(mgr, 2);
     ZDD empty = ZDD::empty(mgr);
 
-    // {1} * {2} = {} (empty)
-    ZDD i = s1 * s2;
+    // {1} & {2} = {} (empty)
+    ZDD i = s1 & s2;
     EXPECT_TRUE(i.is_zero());
 
-    // s1 * s1 = s1
-    EXPECT_EQ(s1 * s1, s1);
+    // s1 & s1 = s1
+    EXPECT_EQ(s1 & s1, s1);
 
-    // {} * s1 = {}
-    EXPECT_TRUE((empty * s1).is_zero());
+    // {} & s1 = {}
+    EXPECT_TRUE((empty & s1).is_zero());
 }
 
 TEST_F(ZDDTest, DifferenceOperation) {
@@ -446,7 +446,7 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     EXPECT_EQ(u12.top(), v2);  // v2 has higher level (lev=3) than v1 (lev=2), so v2 at root
 
     // Test intersection
-    ZDD p13 = s1 * s3;  // Empty (different singleton sets)
+    ZDD p13 = s1 & s3;  // Empty (different singleton sets)
     EXPECT_TRUE(p13.is_zero());
 
     // Test product

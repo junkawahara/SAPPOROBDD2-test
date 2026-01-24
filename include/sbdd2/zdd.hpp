@@ -273,7 +273,7 @@ public:
      * @param other 右オペランド
      * @return F ∩ G
      */
-    ZDD operator*(const ZDD& other) const;
+    ZDD operator&(const ZDD& other) const;
 
     /**
      * @brief 商演算（Division）
@@ -295,7 +295,7 @@ public:
     /// @{
     ZDD& operator+=(const ZDD& other);
     ZDD& operator-=(const ZDD& other);
-    ZDD& operator*=(const ZDD& other);
+    ZDD& operator&=(const ZDD& other);
     ZDD& operator/=(const ZDD& other);
     ZDD& operator%=(const ZDD& other);
     /// @}
@@ -908,7 +908,7 @@ private:
 /// @name 非メンバ演算子
 /// @{
 inline ZDD operator+(ZDD&& a, const ZDD& b) { return a += b; }
-inline ZDD operator*(ZDD&& a, const ZDD& b) { return a *= b; }
+inline ZDD operator&(ZDD&& a, const ZDD& b) { return a &= b; }
 /// @}
 
 /// @name 非メンバ関数

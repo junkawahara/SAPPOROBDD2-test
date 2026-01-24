@@ -193,9 +193,9 @@ public:
     }
 
     /// 積集合（Intersection）
-    MVZDD operator*(const MVZDD& other) const {
+    MVZDD operator&(const MVZDD& other) const {
         check_compatible(other);
-        return MVZDD(manager_, var_table_, zdd_ * other.zdd_);
+        return MVZDD(manager_, var_table_, zdd_ & other.zdd_);
     }
 
     /// 複合代入演算子
@@ -211,9 +211,9 @@ public:
         return *this;
     }
 
-    MVZDD& operator*=(const MVZDD& other) {
+    MVZDD& operator&=(const MVZDD& other) {
         check_compatible(other);
-        zdd_ *= other.zdd_;
+        zdd_ &= other.zdd_;
         return *this;
     }
 

@@ -86,7 +86,7 @@ PiDD PiDD::singleton(int x, int y) {
 
 // Set operations
 PiDD PiDD::operator&(const PiDD& other) const {
-    return PiDD(zdd_ * other.zdd_);  // Intersection
+    return PiDD(zdd_ & other.zdd_);  // Intersection
 }
 
 PiDD PiDD::operator+(const PiDD& other) const {
