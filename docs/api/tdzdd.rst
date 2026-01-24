@@ -640,6 +640,209 @@ Specを評価器で評価します。
    double count = evaluate_spec(spec, eval);
    // count == 252.0 (C(10,5) = 252)
 
+ZDD/BDDの評価
+-------------
+
+構築済みのZDDやBDDを評価器で評価することができます。
+これはTdZddの ``DdStructure::evaluate()`` に相当する機能です。
+
+zdd_evaluate
+~~~~~~~~~~~~
+
+ZDDをDdEval評価器で評価します。
+
+.. code-block:: cpp
+
+   template<typename E, typename T, typename R, int ARITY>
+   R zdd_evaluate(ZDD const& zdd, DdEval<E, T, R, ARITY>& eval);
+
+**パラメータ**:
+
+* ``zdd`` - 評価対象のZDD
+* ``eval`` - DdEval派生クラスのインスタンス
+
+**戻り値**: 評価結果（型R）
+
+**動作**:
+
+1. ZDDの全ノードをレベルごとに収集（BFS）
+2. 終端ノードを評価（``evalTerminal``）
+3. レベル1からルートまでボトムアップで評価（``evalNode``）
+4. ルートノードの値から最終結果を取得（``getValue``）
+
+使用例
+^^^^^^
+
+.. code-block:: cpp
+
+   #include "sbdd2/tdzdd/DdEval.hpp"
+   #include "sbdd2/tdzdd/Sbdd2Builder.hpp"
+
+   using namespace sbdd2;
+   using namespace sbdd2::tdzdd;
+
+   DDManager mgr;
+
+   // ZDDを構築
+   Combination spec(5, 2);
+   ZDD comb = build_zdd(mgr, spec);
+
+   // CardinalityEvalで集合数をカウント
+   CardinalityEval cardEval;
+   double count = zdd_evaluate(comb, cardEval);
+   // count == 10.0 (C(5,2) = 10)
+
+カスタム評価器の例
+^^^^^^^^^^^^^^^^^^
+
+.. code-block:: cpp
+
+   // 最大要素数を計算する評価器
+   class MaxSizeEval : public DdEval<MaxSizeEval, int, int, 2> {
+   public:
+       void evalTerminal(int& v, int id) {
+           v = (id == 1) ? 0 : -1000000;  // accept=0, reject=-∞
+       }
+
+       void evalNode(int& v, int level, DdValues<int, 2> const& values) {
+           (void)level;
+           int low = values.get(0);   // 要素を選ばない
+           int high = values.get(1);  // 要素を選ぶ（+1）
+           v = std::max(low, high + 1);
+       }
+   };
+
+   // 使用
+   PowerSet powerSpec(5);
+   ZDD power = build_zdd(mgr, powerSpec);
+
+   MaxSizeEval maxEval;
+   int maxSize = zdd_evaluate(power, maxEval);
+   // maxSize == 5 (全要素を含む集合)
+
+.. code-block:: cpp
+
+   // 最小要素数を計算する評価器
+   class MinSizeEval : public DdEval<MinSizeEval, int, int, 2> {
+   public:
+       void evalTerminal(int& v, int id) {
+           v = (id == 1) ? 0 : 1000000;  // accept=0, reject=+∞
+       }
+
+       void evalNode(int& v, int level, DdValues<int, 2> const& values) {
+           (void)level;
+           int low = values.get(0);
+           int high = values.get(1) + 1;
+           v = std::min(low, high);
+       }
+   };
+
+bdd_evaluate
+~~~~~~~~~~~~
+
+BDDをDdEval評価器で評価します。
+
+.. code-block:: cpp
+
+   template<typename E, typename T, typename R, int ARITY>
+   R bdd_evaluate(BDD const& bdd, DdEval<E, T, R, ARITY>& eval);
+
+**パラメータ**:
+
+* ``bdd`` - 評価対象のBDD
+* ``eval`` - DdEval派生クラスのインスタンス
+
+**戻り値**: 評価結果（型R）
+
+使用例
+^^^^^^
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   mgr.new_var();
+   mgr.new_var();
+
+   // BDDを構築（x1 AND x2）
+   BDD x1 = mgr.var_bdd(1);
+   BDD x2 = mgr.var_bdd(2);
+   BDD andBdd = x1 & x2;
+
+   // CardinalityEvalでパス数をカウント
+   CardinalityEval cardEval;
+   double count = bdd_evaluate(andBdd, cardEval);
+
+終端BDDの評価
+^^^^^^^^^^^^^
+
+.. code-block:: cpp
+
+   // 0終端（false）
+   BDD zeroBdd = BDD::zero(mgr);
+   CardinalityEval eval1;
+   double z = bdd_evaluate(zeroBdd, eval1);  // z == 0.0
+
+   // 1終端（true）
+   BDD oneBdd = BDD::one(mgr);
+   CardinalityEval eval2;
+   double o = bdd_evaluate(oneBdd, eval2);   // o == 1.0
+
+ZDDのサブセット演算
+-------------------
+
+既存のZDDとSpecの積集合（サブセット）を計算します。
+
+zdd_subset
+~~~~~~~~~~
+
+ZDDとSpecの積集合を計算します。
+
+.. code-block:: cpp
+
+   template<typename SPEC>
+   ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec);
+
+**パラメータ**:
+
+* ``mgr`` - DDManager
+* ``input`` - 入力ZDD
+* ``spec`` - フィルタとして使用するSpec
+
+**戻り値**: 入力ZDDとSpecの積集合を表すZDD
+
+**動作**:
+
+入力ZDDに含まれる集合のうち、Specで受理される集合のみを抽出します。
+これは ``input & build_zdd(mgr, spec)`` と同じ結果になりますが、
+入力ZDDを直接走査するため効率的です。
+
+使用例
+^^^^^^
+
+.. code-block:: cpp
+
+   // べき集合から特定サイズの集合を抽出
+   PowerSet powerSpec(5);
+   ZDD power = build_zdd(mgr, powerSpec);  // 2^5 = 32 sets
+
+   Combination combSpec(5, 2);
+   ZDD result = zdd_subset(mgr, power, combSpec);
+   // result.card() == 10.0 (C(5,2) = 10)
+
+.. code-block:: cpp
+
+   // 積集合として使用
+   Combination spec1(6, 2);
+   Combination spec2(6, 3);
+
+   ZDD zdd1 = build_zdd(mgr, spec1);  // C(6,2) = 15
+   ZDD zdd2 = build_zdd(mgr, spec2);  // C(6,3) = 20
+
+   // zdd1 と spec2 の積集合（共通部分なし）
+   Combination spec2copy(6, 3);
+   ZDD result = zdd_subset(mgr, zdd1, spec2copy);
+   // result == ZDD::empty(mgr)
+
 参考文献
 --------
 
