@@ -70,7 +70,7 @@ make -j4
 - Method names: snake_case (`new_var()`, `var_bdd()`)
 - Operator overloading: SAPPOROBDD++ compatible
   - BDD: `&`(AND), `|`(OR), `^`(XOR), `~`(NOT)
-  - ZDD: `+`(Union), `-`(Diff), `&`(Intersect), `/`(Quotient), `%`(Remainder)
+  - ZDD: `+`(Union), `-`(Diff), `&`(Intersect), `*`(Join), `/`(Quotient), `%`(Remainder)
 
 ## Git Workflow
 

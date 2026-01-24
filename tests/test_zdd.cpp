@@ -126,14 +126,17 @@ TEST_F(ZDDTest, Product) {
     ZDD base = ZDD::single(mgr);
 
     // {1} * base = {1} (cross product with empty set)
-    EXPECT_EQ(s1.product(base), s1);
+    EXPECT_EQ(s1.join(base), s1);
+    EXPECT_EQ(s1 * base, s1);  // operator* version
 
     // base * {1} = {1}
-    EXPECT_EQ(base.product(s1), s1);
+    EXPECT_EQ(base.join(s1), s1);
+    EXPECT_EQ(base * s1, s1);  // operator* version
 
-    // {1} product {2} = {{1,2}}
-    ZDD p = s1.product(s2);
+    // {1} join {2} = {{1,2}}
+    ZDD p = s1.join(s2);
     EXPECT_EQ(p.card(), 1.0);
+    EXPECT_EQ(s1 * s2, p);  // operator* version
 
     // Enumerate to verify
     auto sets = p.enumerate();
@@ -180,7 +183,7 @@ TEST_F(ZDDTest, Card) {
     EXPECT_EQ(u.card(), 3.0);
 
     // Product creates combinations
-    ZDD p12 = s1.product(s2);  // {{1,2}}
+    ZDD p12 = s1.join(s2);  // {{1,2}}
     EXPECT_EQ(p12.card(), 1.0);
 
     // Union of different sized sets
@@ -200,7 +203,7 @@ TEST_F(ZDDTest, Size) {
 TEST_F(ZDDTest, Support) {
     ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD s2 = ZDD::singleton(mgr, 2);
-    ZDD p = s1.product(s2);  // {{1,2}}
+    ZDD p = s1.join(s2);  // {{1,2}}
 
     auto supp = p.support();
     EXPECT_EQ(supp.size(), 2u);
@@ -225,7 +228,7 @@ TEST_F(ZDDTest, ComplexFamily) {
     ZDD base = ZDD::single(mgr);          // {{}}
     ZDD s1 = ZDD::singleton(mgr, 1);       // {{1}}
     ZDD s2 = ZDD::singleton(mgr, 2);       // {{2}}
-    ZDD s12 = s1.product(s2);           // {{1,2}}
+    ZDD s12 = s1.join(s2);           // {{1,2}}
 
     ZDD powerset = base + s1 + s2 + s12;
     EXPECT_EQ(powerset.card(), 4.0);
@@ -237,7 +240,7 @@ TEST_F(ZDDTest, ComplexFamily) {
 // ============== New method tests ==============
 
 TEST_F(ZDDTest, Swap) {
-    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s12 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 2));  // {{1,2}}
     ZDD swapped = s12.swap(1, 2);
     EXPECT_EQ(swapped, s12);  // Swapping should give same result for this case
 
@@ -253,7 +256,7 @@ TEST_F(ZDDTest, Swap) {
 TEST_F(ZDDTest, LitLen) {
     ZDD s1 = ZDD::singleton(mgr, 1);  // {{1}}
     ZDD s2 = ZDD::singleton(mgr, 2);  // {{2}}
-    ZDD s12 = s1.product(s2);      // {{1,2}}
+    ZDD s12 = s1.join(s2);      // {{1,2}}
 
     EXPECT_EQ(s1.lit(), 1u);   // 1 literal
     EXPECT_EQ(s12.lit(), 2u);  // 2 literals
@@ -280,7 +283,7 @@ TEST_F(ZDDTest, PermitSym) {
     ZDD base = ZDD::single(mgr);
     ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD s2 = ZDD::singleton(mgr, 2);
-    ZDD s12 = s1.product(s2);
+    ZDD s12 = s1.join(s2);
     ZDD powerset = base + s1 + s2 + s12;  // {{}, {1}, {2}, {1,2}}
 
     // permit_sym(1): keep only sets with cardinality <= 1
@@ -293,8 +296,8 @@ TEST_F(ZDDTest, PermitSym) {
 }
 
 TEST_F(ZDDTest, Always) {
-    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
-    ZDD s13 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 3));  // {{1,3}}
+    ZDD s12 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s13 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 3));  // {{1,3}}
     ZDD u = s12 + s13;  // {{1,2}, {1,3}}
 
     // Variable 1 is in all sets
@@ -313,13 +316,13 @@ TEST_F(ZDDTest, SymChk) {
     EXPECT_EQ(u.sym_chk(1, 2), 1);
 
     // Check non-symmetric case
-    ZDD s12 = s1.product(s2);  // {{1,2}}
+    ZDD s12 = s1.join(s2);  // {{1,2}}
     ZDD asymm = s1 + s12;  // {{1}, {1,2}}
     EXPECT_EQ(asymm.sym_chk(1, 2), 0);  // Not symmetric
 }
 
 TEST_F(ZDDTest, ImplyChk) {
-    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s12 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 2));  // {{1,2}}
 
     // In {{1,2}}, 1 implies 2 and 2 implies 1
     EXPECT_EQ(s12.imply_chk(1, 2), 1);
@@ -344,8 +347,8 @@ TEST_F(ZDDTest, IsPoly) {
 }
 
 TEST_F(ZDDTest, Meet) {
-    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
-    ZDD s23 = ZDD::singleton(mgr, 2).product(ZDD::singleton(mgr, 3));  // {{2,3}}
+    ZDD s12 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s23 = ZDD::singleton(mgr, 2).join(ZDD::singleton(mgr, 3));  // {{2,3}}
 
     ZDD meet_result = zdd_meet(s12, s23);
     // Meet of {1,2} and {2,3} should give {{2}} (intersection of sets)
@@ -390,7 +393,7 @@ TEST_F(ZDDTest, MakeDontCare) {
 }
 
 TEST_F(ZDDTest, IsMember) {
-    ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+    ZDD s12 = ZDD::singleton(mgr, 1).join(ZDD::singleton(mgr, 2));  // {{1,2}}
     ZDD s1 = ZDD::singleton(mgr, 1);
     ZDD combined = s1 + s12;  // {{1}, {1,2}}
 
@@ -449,10 +452,11 @@ TEST(ZDDLevelTest, OperationsWithDifferentLevels) {
     ZDD p13 = s1 & s3;  // Empty (different singleton sets)
     EXPECT_TRUE(p13.is_zero());
 
-    // Test product
-    ZDD prod = s3.product(s1);  // {{v3, v1}}
+    // Test join
+    ZDD prod = s3.join(s1);  // {{v3, v1}}
     EXPECT_EQ(prod.card(), 1.0);
     EXPECT_EQ(prod.top(), v1);  // v1 at root (lev=2 > lev=1)
+    EXPECT_EQ(s3 * s1, prod);  // operator* version
 }
 
 TEST(ZDDLevelTest, MeetWithDifferentLevels) {
@@ -605,8 +609,8 @@ TEST_F(ZDDIndexTest, MatchesCard) {
     // Various combinations
     ZDD u12 = s1 + s2;
     ZDD u123 = s1 + s2 + s3;
-    ZDD prod = s1.product(s2);
-    ZDD complex = (s1 + s2).product(s3) + ZDD::single(mgr);
+    ZDD prod = s1.join(s2);
+    ZDD complex = (s1 + s2).join(s3) + ZDD::single(mgr);
 
     EXPECT_EQ(u12.indexed_count(), u12.card());
     EXPECT_EQ(u123.indexed_count(), u123.card());

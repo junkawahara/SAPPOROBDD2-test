@@ -139,7 +139,7 @@ WeightIterator& WeightIterator::operator++() {
     ZDD single_set = ZDD::single(*remaining_->manager());
     for (bddvar v : current_) {
         ZDD var_zdd = ZDD::singleton(*remaining_->manager(), v);
-        single_set = single_set.product(var_zdd);
+        single_set = single_set.join(var_zdd);
     }
 
     // Remove from remaining
@@ -237,7 +237,7 @@ RandomIterator& RandomIterator::operator++() {
     ZDD single_set = ZDD::single(*remaining_->manager());
     for (bddvar v : current_) {
         ZDD var_zdd = ZDD::singleton(*remaining_->manager(), v);
-        single_set = single_set.product(var_zdd);
+        single_set = single_set.join(var_zdd);
     }
 
     *remaining_ = *remaining_ - single_set;

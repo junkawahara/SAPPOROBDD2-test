@@ -301,11 +301,25 @@ public:
     /// @}
 
     /**
-     * @brief 直積演算（Cross Product）
+     * @brief 直積演算（Join / Cross Product）
      * @param other 右オペランド
      * @return {S ∪ T | S ∈ F, T ∈ G}
      */
-    ZDD product(const ZDD& other) const;
+    ZDD join(const ZDD& other) const;
+
+    /**
+     * @brief 直積演算（Join / Cross Product）- operator*
+     * @param other 右オペランド
+     * @return {S ∪ T | S ∈ F, T ∈ G}
+     */
+    ZDD operator*(const ZDD& other) const;
+
+    /**
+     * @brief 直積演算の複合代入
+     * @param other 右オペランド
+     * @return *this
+     */
+    ZDD& operator*=(const ZDD& other);
 
     /// @name カウント演算
     /// @{
@@ -909,6 +923,7 @@ private:
 /// @{
 inline ZDD operator+(ZDD&& a, const ZDD& b) { return a += b; }
 inline ZDD operator&(ZDD&& a, const ZDD& b) { return a &= b; }
+inline ZDD operator*(ZDD&& a, const ZDD& b) { return a *= b; }
 /// @}
 
 /// @name 非メンバ関数

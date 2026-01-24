@@ -101,7 +101,7 @@ PiDD PiDD::operator-(const PiDD& other) const {
 PiDD PiDD::operator*(const PiDD& other) const {
     // Permutation composition is complex
     // This is a simplified version
-    return PiDD(zdd_.product(other.zdd_));
+    return PiDD(zdd_.join(other.zdd_));
 }
 
 // Quotient

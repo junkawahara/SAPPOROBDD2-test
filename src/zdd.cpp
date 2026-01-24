@@ -432,7 +432,7 @@ ZDD ZDD::operator%(const ZDD& other) const {
         throw DDIncompatibleException("ZDD managers do not match");
     }
     ZDD q = *this / other;
-    ZDD qg = q.product(other);
+    ZDD qg = q.join(other);
     return *this - qg;
 }
 
@@ -462,8 +462,8 @@ ZDD& ZDD::operator%=(const ZDD& other) {
     return *this;
 }
 
-// Product (cross product)
-static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
+// Join (cross product)
+static Arc zdd_join(DDManager* mgr, Arc f, Arc g) {
     if (f == ARC_TERMINAL_0 || g == ARC_TERMINAL_0) return ARC_TERMINAL_0;
     if (f == ARC_TERMINAL_1) return g;
     if (g == ARC_TERMINAL_1) return f;
@@ -501,10 +501,10 @@ static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
     }
 
     // (f0 + v*f1) * (g0 + v*g1) = f0*g0 + v*(f0*g1 + f1*g0 + f1*g1)
-    Arc r00 = zdd_product(mgr, f0, g0);
-    Arc r01 = zdd_product(mgr, f0, g1);
-    Arc r10 = zdd_product(mgr, f1, g0);
-    Arc r11 = zdd_product(mgr, f1, g1);
+    Arc r00 = zdd_join(mgr, f0, g0);
+    Arc r01 = zdd_join(mgr, f0, g1);
+    Arc r10 = zdd_join(mgr, f1, g0);
+    Arc r11 = zdd_join(mgr, f1, g1);
 
     Arc r1 = zdd_union(mgr, zdd_union(mgr, r01, r10), r11);
     result = mgr->get_or_create_node_zdd(top_var, r00, r1, true);
@@ -513,12 +513,21 @@ static Arc zdd_product(DDManager* mgr, Arc f, Arc g) {
     return result;
 }
 
-ZDD ZDD::product(const ZDD& other) const {
+ZDD ZDD::join(const ZDD& other) const {
     if (!manager_ || !other.manager_ || manager_ != other.manager_) {
         throw DDIncompatibleException("ZDD managers do not match");
     }
-    Arc result = zdd_product(manager_, arc_, other.arc_);
+    Arc result = zdd_join(manager_, arc_, other.arc_);
     return ZDD(manager_, result);
+}
+
+ZDD ZDD::operator*(const ZDD& other) const {
+    return join(other);
+}
+
+ZDD& ZDD::operator*=(const ZDD& other) {
+    *this = *this * other;
+    return *this;
 }
 
 // Counting

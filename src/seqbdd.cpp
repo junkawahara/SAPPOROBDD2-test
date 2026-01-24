@@ -36,7 +36,7 @@ SeqBDD SeqBDD::operator-(const SeqBDD& other) const {
 
 // Concatenation
 SeqBDD SeqBDD::operator*(const SeqBDD& other) const {
-    return SeqBDD(zdd_.product(other.zdd_));
+    return SeqBDD(zdd_.join(other.zdd_));
 }
 
 // Quotient
