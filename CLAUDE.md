@@ -70,12 +70,47 @@ make -j4
 - Do not batch multiple unrelated changes into a single commit
 - **Auto-commit after implementation**: When an implementation task is completed and tests pass, automatically commit the changes without waiting for user instruction
 
+## Variable Number vs Level
+
+SAPPOROBDD 2.0 distinguishes between **variable number** and **level**.
+
+### Variable Number
+- Unique identifier for each variable (assigned sequentially from 1)
+- Never changes after creation
+- Used in API calls: `var_bdd(v)`, `ZDD::single(mgr, v)`
+
+### Level
+- Position in the decision diagram (ordering)
+- **SAPPOROBDD convention**: Higher level = closer to root
+  - Terminal = Level 0
+  - Level 1 = closest to terminal
+  - Root has the highest level
+
+```
+Level 3:  [root]     ← highest level (top)
+Level 2:  [middle]
+Level 1:  [bottom]   ← lowest non-terminal level
+Level 0:  terminal   ← always 0
+```
+
+### Key Methods
+- `lev_of_var(v)` - Get level of variable v
+- `var_of_lev(lev)` - Get variable at level lev
+- `new_var_of_lev(lev)` - Insert new variable at specified level
+- `var_is_above_or_equal(v1, v2)` - Check if v1's level >= v2's level
+
+### TdZdd Integration
+TdZdd's level convention matches SAPPOROBDD:
+- TdZdd level L maps directly to SAPPOROBDD2 level L
+- Root has highest level, terminal is level 0
+
 ## Design Notes
 
 1. **Negation edges**: BDD uses negation edges (NOT is O(1))
 2. **Internal hashing**: Quadratic probing
 3. **Reference counting**: 16-bit, saturates at 65535
 4. **Thread safety**: Protected by mutex
+5. **Level ordering**: Higher level = closer to root (SAPPOROBDD original convention)
 
 ## Testing
 
