@@ -778,3 +778,87 @@ TEST_F(TdZddTest, VarArityZddOpArityMismatch) {
         zddIntersectionVA(spec3, spec4);
     }, DDArgumentException);
 }
+
+// ========================================
+// ZDD Subset Tests
+// ========================================
+
+TEST_F(TdZddTest, ZddSubsetBasic) {
+    // Create a universal ZDD (power set of 5 elements): 2^5 = 32 sets
+    PowerSet powerSpec(5);
+    ZDD power = build_zdd(mgr, powerSpec);
+    EXPECT_DOUBLE_EQ(power.card(), 32.0);
+
+    // Subset with Combination(5, 2): C(5,2) = 10 sets
+    Combination combSpec(5, 2);
+    ZDD result = zdd_subset(mgr, power, combSpec);
+    EXPECT_DOUBLE_EQ(result.card(), 10.0);
+}
+
+TEST_F(TdZddTest, ZddSubsetSingleton) {
+    // Create a universal ZDD (power set of 4 elements): 2^4 = 16 sets
+    PowerSet powerSpec(4);
+    ZDD power = build_zdd(mgr, powerSpec);
+    EXPECT_DOUBLE_EQ(power.card(), 16.0);
+
+    // Subset with Singleton(4): 4 singleton sets
+    Singleton singleSpec(4);
+    ZDD result = zdd_subset(mgr, power, singleSpec);
+    EXPECT_DOUBLE_EQ(result.card(), 4.0);
+}
+
+TEST_F(TdZddTest, ZddSubsetEmpty) {
+    // Subset of empty ZDD should be empty
+    ZDD empty = ZDD::empty(mgr);
+    Combination combSpec(5, 2);
+    ZDD result = zdd_subset(mgr, empty, combSpec);
+    EXPECT_EQ(result, ZDD::empty(mgr));
+}
+
+TEST_F(TdZddTest, ZddSubsetEmptySpec) {
+    // Subset with spec that accepts nothing
+    PowerSet powerSpec(5);
+    ZDD power = build_zdd(mgr, powerSpec);
+
+    // Combination(5, 6) accepts nothing (can't choose 6 from 5)
+    Combination impossibleSpec(5, 6);
+    ZDD result = zdd_subset(mgr, power, impossibleSpec);
+    EXPECT_EQ(result, ZDD::empty(mgr));
+}
+
+TEST_F(TdZddTest, ZddSubsetSingle) {
+    // Subset of single ZDD (empty set only)
+    ZDD single = ZDD::single(mgr);
+
+    // Combination(5, 0) accepts only empty set
+    Combination emptySetSpec(5, 0);
+    ZDD result = zdd_subset(mgr, single, emptySetSpec);
+    EXPECT_EQ(result, ZDD::single(mgr));
+}
+
+TEST_F(TdZddTest, ZddSubsetIdentity) {
+    // Subset with PowerSet spec should return same ZDD (intersection with universal)
+    Combination combSpec1(5, 3);
+    ZDD comb = build_zdd(mgr, combSpec1);
+    double origCard = comb.card();
+
+    // PowerSet accepts everything
+    PowerSet powerSpec(5);
+    ZDD result = zdd_subset(mgr, comb, powerSpec);
+    EXPECT_DOUBLE_EQ(result.card(), origCard);
+}
+
+TEST_F(TdZddTest, ZddSubsetIntersection) {
+    // Subset is equivalent to intersection
+    // Build C(6,2) and C(6,3)
+    Combination spec1(6, 2);
+    Combination spec2(6, 3);
+
+    ZDD zdd1 = build_zdd(mgr, spec1);  // C(6,2) = 15
+    ZDD zdd2 = build_zdd(mgr, spec2);  // C(6,3) = 20
+
+    // Subset of zdd1 with spec2 should be empty (no overlap)
+    Combination spec2copy(6, 3);
+    ZDD result = zdd_subset(mgr, zdd1, spec2copy);
+    EXPECT_EQ(result, ZDD::empty(mgr));
+}

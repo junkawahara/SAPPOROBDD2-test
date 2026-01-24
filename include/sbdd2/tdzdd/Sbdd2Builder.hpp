@@ -13,6 +13,7 @@
 #include <vector>
 #include <unordered_map>
 #include <array>
+#include <functional>
 
 #include "../dd_manager.hpp"
 #include "../zdd.hpp"
@@ -969,6 +970,162 @@ MVBDD build_mvbdd_va(DDManager& mgr, SPEC& spec) {
     }
 
     return nodeMVBDDs[rootLevel][0];
+}
+
+// ============================================================
+// ZDD Subset Operation
+// ============================================================
+
+/**
+ * Build a ZDD by applying a spec as a filter (subset operation) on an existing ZDD.
+ *
+ * This is equivalent to TdZdd's DdStructure::zddSubset().
+ * The result is the intersection of the input ZDD with the set defined by the spec.
+ *
+ * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
+ * @param mgr The DDManager to use
+ * @param input The input ZDD to subset
+ * @param spec The spec instance defining the filter
+ * @return ZDD representing input ∩ spec
+ */
+template<typename SPEC>
+ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
+    // Handle terminal cases
+    if (input == ZDD::empty(mgr)) {
+        return ZDD::empty(mgr);
+    }
+
+    // Use recursive memoized approach
+    // Key: (input ZDD id, state hash) -> result ZDD
+    typedef std::pair<bddindex, std::size_t> MemoKey;
+    struct MemoKeyHash {
+        std::size_t operator()(MemoKey const& k) const {
+            return k.first * 314159257 + k.second;
+        }
+    };
+    std::unordered_map<MemoKey, ZDD, MemoKeyHash> memo;
+
+    int const stateSize = spec.datasize();
+
+    // Helper to compute state hash
+    auto stateHash = [stateSize](void const* state) -> std::size_t {
+        if (stateSize == 0) return 0;
+        std::size_t h = 0;
+        char const* p = static_cast<char const*>(state);
+        for (int i = 0; i < stateSize; ++i) {
+            h = h * 31 + static_cast<unsigned char>(p[i]);
+        }
+        return h;
+    };
+
+    // Recursive subset function
+    std::function<ZDD(ZDD const&, void*, int)> subsetRec;
+    subsetRec = [&](ZDD const& f, void* state, int specLev) -> ZDD {
+        // Terminal cases
+        if (specLev == 0) {
+            return ZDD::empty(mgr);
+        }
+        if (f == ZDD::empty(mgr)) {
+            return ZDD::empty(mgr);
+        }
+        if (specLev < 0) {
+            // Spec accepts - return input as-is
+            return f;
+        }
+        if (f == ZDD::single(mgr)) {
+            // Input is 1-terminal - follow spec's 0-edges to see if it accepts
+            std::vector<char> tmpState(stateSize > 0 ? stateSize : 1);
+            if (stateSize > 0) {
+                spec.get_copy(tmpState.data(), state);
+            }
+            int lev = specLev;
+            while (lev > 0) {
+                lev = spec.get_child(tmpState.data(), lev, 0);
+            }
+            spec.destruct(tmpState.data());
+            return (lev < 0) ? ZDD::single(mgr) : ZDD::empty(mgr);
+        }
+
+        // Get input ZDD level
+        int inputLev = static_cast<int>(mgr.lev_of_var(f.top()));
+
+        // Synchronize levels
+        if (specLev > inputLev) {
+            // Spec is higher - follow 0-edge of spec
+            std::vector<char> newState(stateSize > 0 ? stateSize : 1);
+            if (stateSize > 0) {
+                spec.get_copy(newState.data(), state);
+            }
+            int newSpecLev = spec.get_child(newState.data(), specLev, 0);
+            ZDD result = subsetRec(f, newState.data(), newSpecLev);
+            spec.destruct(newState.data());
+            return result;
+        }
+        if (specLev < inputLev) {
+            // Input is higher - follow 0-edge of input
+            return subsetRec(f.low(), state, specLev);
+        }
+
+        // Same level - check memo
+        bddindex inputId = f.is_terminal() ? 0 : f.id();
+        std::size_t sh = stateHash(state);
+        MemoKey key(inputId, sh);
+        typename std::unordered_map<MemoKey, ZDD, MemoKeyHash>::iterator it = memo.find(key);
+        if (it != memo.end()) {
+            return it->second;
+        }
+
+        // Process children
+        ZDD low, high;
+
+        // 0-child
+        {
+            std::vector<char> childState(stateSize > 0 ? stateSize : 1);
+            if (stateSize > 0) {
+                spec.get_copy(childState.data(), state);
+            }
+            int childSpecLev = spec.get_child(childState.data(), specLev, 0);
+            low = subsetRec(f.low(), childState.data(), childSpecLev);
+            spec.destruct(childState.data());
+        }
+
+        // 1-child
+        {
+            std::vector<char> childState(stateSize > 0 ? stateSize : 1);
+            if (stateSize > 0) {
+                spec.get_copy(childState.data(), state);
+            }
+            int childSpecLev = spec.get_child(childState.data(), specLev, 1);
+            high = subsetRec(f.high(), childState.data(), childSpecLev);
+            spec.destruct(childState.data());
+        }
+
+        // Build result node (with ZDD reduction)
+        ZDD result;
+        if (high == ZDD::empty(mgr)) {
+            result = low;
+        } else {
+            bddvar var = mgr.var_of_lev(specLev);
+            Arc lowArc = low.arc();
+            Arc highArc = high.arc();
+            Arc resultArc = mgr.get_or_create_node_zdd(var, lowArc, highArc, true);
+            result = resultArc.is_constant() ?
+                (resultArc.terminal_value() ? ZDD::single(mgr) : ZDD::empty(mgr)) :
+                ZDD(&mgr, resultArc);
+        }
+
+        memo[key] = result;
+        return result;
+    };
+
+    // Get spec root
+    std::vector<char> rootState(stateSize > 0 ? stateSize : 1);
+    int specRootLev = spec.get_root(rootState.data());
+
+    ZDD result = subsetRec(input, rootState.data(), specRootLev);
+    spec.destruct(rootState.data());
+
+    return result;
 }
 
 } // namespace tdzdd
