@@ -51,10 +51,11 @@ public:
  * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
  * @param mgr The DDManager to use
  * @param spec The spec instance
+ * @param offset Level offset: spec level L maps to SAPPOROBDD2 level (L + offset)
  * @return UnreducedZDD
  */
 template<typename SPEC>
-UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
+UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec, int offset = 0) {
     int const datasize = spec.datasize();
     int const ARITY = SPEC::ARITY;
 
@@ -69,8 +70,8 @@ UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
         return UnreducedZDD::single(mgr);
     }
 
-    // Ensure variables exist
-    while (static_cast<int>(mgr.var_count()) < rootLevel) {
+    // Ensure variables exist for level (rootLevel + offset)
+    while (static_cast<int>(mgr.var_count()) < rootLevel + offset) {
         mgr.new_var();
     }
 
@@ -102,8 +103,8 @@ UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
         nodeArcs[level].resize(numNodes);
 
         // Create placeholder nodes for this level
-        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
-        bddvar var = mgr.var_of_lev(level);
+        // TdZdd level L → SAPPOROBDD2 level (L + offset)
+        bddvar var = mgr.var_of_lev(level + offset);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_zdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
@@ -227,11 +228,12 @@ UnreducedZDD build_unreduced_zdd(DDManager& mgr, SPEC& spec) {
  * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
  * @param mgr The DDManager to use
  * @param spec The spec instance
+ * @param offset Level offset: spec level L maps to SAPPOROBDD2 level (L + offset)
  * @return ZDD (reduced)
  */
 template<typename SPEC>
-ZDD build_zdd(DDManager& mgr, SPEC& spec) {
-    UnreducedZDD unreduced = build_unreduced_zdd(mgr, spec);
+ZDD build_zdd(DDManager& mgr, SPEC& spec, int offset = 0) {
+    UnreducedZDD unreduced = build_unreduced_zdd(mgr, spec, offset);
     return unreduced.reduce();
 }
 
@@ -241,10 +243,11 @@ ZDD build_zdd(DDManager& mgr, SPEC& spec) {
  * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
  * @param mgr The DDManager to use
  * @param spec The spec instance
+ * @param offset Level offset: spec level L maps to SAPPOROBDD2 level (L + offset)
  * @return UnreducedBDD
  */
 template<typename SPEC>
-UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec) {
+UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec, int offset = 0) {
     int const datasize = spec.datasize();
     int const ARITY = SPEC::ARITY;
 
@@ -259,8 +262,8 @@ UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec) {
         return UnreducedBDD::one(mgr);
     }
 
-    // Ensure variables exist
-    while (static_cast<int>(mgr.var_count()) < rootLevel) {
+    // Ensure variables exist for level (rootLevel + offset)
+    while (static_cast<int>(mgr.var_count()) < rootLevel + offset) {
         mgr.new_var();
     }
 
@@ -280,8 +283,8 @@ UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec) {
         nodeArcs[level].resize(numNodes);
 
         // Create placeholder nodes for this level
-        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
-        bddvar var = mgr.var_of_lev(level);
+        // TdZdd level L → SAPPOROBDD2 level (L + offset)
+        bddvar var = mgr.var_of_lev(level + offset);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_bdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
@@ -385,11 +388,12 @@ UnreducedBDD build_unreduced_bdd(DDManager& mgr, SPEC& spec) {
  * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
  * @param mgr The DDManager to use
  * @param spec The spec instance
+ * @param offset Level offset: spec level L maps to SAPPOROBDD2 level (L + offset)
  * @return BDD (reduced)
  */
 template<typename SPEC>
-BDD build_bdd(DDManager& mgr, SPEC& spec) {
-    UnreducedBDD unreduced = build_unreduced_bdd(mgr, spec);
+BDD build_bdd(DDManager& mgr, SPEC& spec, int offset = 0) {
+    UnreducedBDD unreduced = build_unreduced_bdd(mgr, spec, offset);
     return unreduced.reduce();
 }
 
@@ -986,10 +990,11 @@ MVBDD build_mvbdd_va(DDManager& mgr, SPEC& spec) {
  * @param mgr The DDManager to use
  * @param input The input ZDD to subset
  * @param spec The spec instance defining the filter
+ * @param offset Level offset: spec level L maps to SAPPOROBDD2 level (L + offset)
  * @return ZDD representing input ∩ spec
  */
 template<typename SPEC>
-ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
+ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec, int offset = 0) {
     // Handle terminal cases
     if (input == ZDD::empty(mgr)) {
         return ZDD::empty(mgr);
@@ -1019,6 +1024,7 @@ ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
     };
 
     // Recursive subset function
+    // Spec level L corresponds to SAPPOROBDD2 level L
     std::function<ZDD(ZDD const&, void*, int)> subsetRec;
     subsetRec = [&](ZDD const& f, void* state, int specLev) -> ZDD {
         // Terminal cases
@@ -1029,8 +1035,13 @@ ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
             return ZDD::empty(mgr);
         }
         if (specLev < 0) {
-            // Spec accepts - return input as-is
-            return f;
+            // Spec accepts - all remaining variables must be 0 (not selected)
+            // Follow low edges to terminal
+            ZDD current = f;
+            while (!current.is_terminal()) {
+                current = current.low();
+            }
+            return current;  // Either empty or single
         }
         if (f == ZDD::single(mgr)) {
             // Input is 1-terminal - follow spec's 0-edges to see if it accepts
@@ -1046,12 +1057,19 @@ ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
             return (lev < 0) ? ZDD::single(mgr) : ZDD::empty(mgr);
         }
 
-        // Get input ZDD level
-        int inputLev = static_cast<int>(mgr.lev_of_var(f.top()));
+        // Spec level L corresponds to SAPPOROBDD2 level (L + offset)
+        // Get the variable at level (specLev + offset)
+        bddvar specVar = mgr.var_of_lev(specLev + offset);
+        int specZddLev = specLev + offset;
 
-        // Synchronize levels
-        if (specLev > inputLev) {
-            // Spec is higher - follow 0-edge of spec
+        // Get input ZDD's current variable and its level
+        bddvar inputVar = f.top();
+        int inputZddLev = static_cast<int>(mgr.lev_of_var(inputVar));
+
+
+        // Synchronize by ZDD level (higher level = closer to root)
+        if (specZddLev > inputZddLev) {
+            // Spec variable is higher - follow 0-edge of spec
             std::vector<char> newState(stateSize > 0 ? stateSize : 1);
             if (stateSize > 0) {
                 spec.get_copy(newState.data(), state);
@@ -1061,12 +1079,12 @@ ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
             spec.destruct(newState.data());
             return result;
         }
-        if (specLev < inputLev) {
-            // Input is higher - follow 0-edge of input
+        if (specZddLev < inputZddLev) {
+            // Input variable is higher - follow 0-edge of input
             return subsetRec(f.low(), state, specLev);
         }
 
-        // Same level - check memo
+        // Same ZDD level - check memo
         bddindex inputId = f.is_terminal() ? 0 : f.id();
         std::size_t sh = stateHash(state);
         MemoKey key(inputId, sh);
@@ -1105,10 +1123,10 @@ ZDD zdd_subset(DDManager& mgr, ZDD const& input, SPEC& spec) {
         if (high == ZDD::empty(mgr)) {
             result = low;
         } else {
-            bddvar var = mgr.var_of_lev(specLev);
+            // Use the variable that matches the spec level
             Arc lowArc = low.arc();
             Arc highArc = high.arc();
-            Arc resultArc = mgr.get_or_create_node_zdd(var, lowArc, highArc, true);
+            Arc resultArc = mgr.get_or_create_node_zdd(specVar, lowArc, highArc, true);
             result = resultArc.is_constant() ?
                 (resultArc.terminal_value() ? ZDD::single(mgr) : ZDD::empty(mgr)) :
                 ZDD(&mgr, resultArc);
