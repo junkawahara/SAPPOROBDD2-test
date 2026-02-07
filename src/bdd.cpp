@@ -12,8 +12,8 @@
 #include <functional>
 #include <algorithm>
 
-#ifdef SBDD2_HAS_GMP
-#include <gmpxx.h>
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+#include "sbdd2/exact_int.hpp"
 #endif
 
 namespace sbdd2 {
@@ -515,7 +515,7 @@ double BDD::count(bddvar max_var) const {
     return count_rec(arc_, max_var);
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 std::string BDD::exact_count() const {
     if (!manager_) return "0";
     if (arc_.is_constant()) {
@@ -527,16 +527,14 @@ std::string BDD::exact_count() const {
     // Count with memoization using levels
     // SAPPOROBDD convention: larger level = closer to root
     bddvar top_lev = manager_->top_lev();
-    std::unordered_map<std::uint64_t, mpz_class> memo;
+    std::unordered_map<std::uint64_t, exact_int_t> memo;
 
-    std::function<mpz_class(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> mpz_class {
+    std::function<exact_int_t(Arc, bddvar)> count_rec = [&](Arc a, bddvar level) -> exact_int_t {
         if (a.is_constant()) {
             bool val = a.terminal_value() != a.is_negated();
-            if (!val) return 0;
+            if (!val) return exact_int_t(0);
             // 2^level for remaining variables below this level
-            mpz_class result;
-            mpz_ui_pow_ui(result.get_mpz_t(), 2, level);
-            return result;
+            return exact_int_pow2(level);
         }
 
         std::uint64_t key = (a.data << 20) | level;
@@ -555,18 +553,17 @@ std::string BDD::exact_count() const {
         }
 
         // Account for skipped variables: 2^(level - v_lev) for levels above this node
-        mpz_class skip_factor;
-        mpz_ui_pow_ui(skip_factor.get_mpz_t(), 2, level - v_lev);
+        exact_int_t skip_factor = exact_int_pow2(level - v_lev);
 
-        mpz_class c0 = count_rec(a0, v_lev - 1);
-        mpz_class c1 = count_rec(a1, v_lev - 1);
-        mpz_class result = skip_factor * (c0 + c1);
+        exact_int_t c0 = count_rec(a0, v_lev - 1);
+        exact_int_t c1 = count_rec(a1, v_lev - 1);
+        exact_int_t result = skip_factor * (c0 + c1);
 
         memo[key] = result;
         return result;
     };
 
-    return count_rec(arc_, top_lev).get_str();
+    return exact_int_to_str(count_rec(arc_, top_lev));
 }
 #endif
 

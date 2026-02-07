@@ -18,8 +18,8 @@
 #include <memory>
 #include <mutex>
 
-#ifdef SBDD2_HAS_GMP
-#include <gmpxx.h>
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+#include "exact_int.hpp"
 #endif
 
 namespace sbdd2 {
@@ -96,14 +96,14 @@ struct ZDDIndexData {
     ZDDIndexData() : height(0), min_level(0) {}
 };
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 /**
- * @brief ZDDインデックスデータ（GMP任意精度版）
+ * @brief ZDDインデックスデータ（厳密整数版）
  *
- * 各ノードから1終端までの経路数をmpz_class（GMP多倍長整数）で格納する
+ * 各ノードから1終端までの経路数を厳密整数型で格納する
  * データ構造。2^53を超える大きな濃度のZDDでも正確な値を保持できる。
  *
- * @note このクラスはSBDD2_HAS_GMPが定義されている場合のみ利用可能。
+ * @note このクラスはSBDD2_HAS_GMPまたはSBDD2_HAS_BIGINTが定義されている場合のみ利用可能。
  * @see ZDDIndexData
  */
 struct ZDDExactIndexData {
@@ -114,8 +114,8 @@ struct ZDDExactIndexData {
     /// @brief ノードからレベル内インデックスへのマッピング
     std::unordered_map<Arc, std::size_t, ArcHash, ArcEqual> node_to_idx;
 
-    /// @brief ノードから1終端までの経路数へのマッピング（GMP多倍長整数）
-    std::unordered_map<Arc, mpz_class, ArcHash, ArcEqual> count_cache;
+    /// @brief ノードから1終端までの経路数へのマッピング（厳密整数型）
+    std::unordered_map<Arc, exact_int_t, ArcHash, ArcEqual> count_cache;
 
     /// @brief ZDDの高さ（ルートノードのレベル = 最高レベル）
     int height;

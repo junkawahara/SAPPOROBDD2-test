@@ -5,8 +5,8 @@
 #include <queue>
 #include <algorithm>
 
-#ifdef SBDD2_HAS_GMP
-#include <gmpxx.h>
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+#include "sbdd2/exact_int.hpp"
 #endif
 
 namespace sbdd2 {
@@ -159,7 +159,7 @@ void ZDD::build_index_impl() const {
     }
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 void ZDD::build_exact_index() const {
     if (!manager_ || !exact_index_once_flag_) {
         return;
@@ -245,15 +245,15 @@ void ZDD::build_exact_index_impl() const {
     }
 
     // Compute counts bottom-up with GMP
-    auto get_count = [this](Arc a) -> mpz_class {
+    auto get_count = [this](Arc a) -> exact_int_t {
         if (a.is_constant()) {
-            return (a == ARC_TERMINAL_1) ? mpz_class(1) : mpz_class(0);
+            return (a == ARC_TERMINAL_1) ? exact_int_t(1) : exact_int_t(0);
         }
         auto it = exact_index_cache_->count_cache.find(a);
         if (it != exact_index_cache_->count_cache.end()) {
             return it->second;
         }
-        return mpz_class(0);
+        return exact_int_t(0);
     };
 
     // Process from bottom to top (low level number to high level number)
@@ -263,8 +263,8 @@ void ZDD::build_exact_index_impl() const {
             Arc child0 = get_child0_zdd(manager_, node);
             Arc child1 = get_child1_zdd(manager_, node);
 
-            mpz_class count0 = get_count(child0);
-            mpz_class count1 = get_count(child1);
+            exact_int_t count0 = get_count(child0);
+            exact_int_t count1 = get_count(child1);
 
             exact_index_cache_->count_cache[node] = count0 + count1;
         }
@@ -280,7 +280,7 @@ void ZDD::clear_index() const {
     index_once_flag_.reset(new std::once_flag());
     index_cache_.reset();
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     exact_index_once_flag_.reset(new std::once_flag());
     exact_index_cache_.reset();
 #endif
@@ -290,7 +290,7 @@ bool ZDD::has_index() const {
     return index_cache_ != nullptr;
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 bool ZDD::has_exact_index() const {
     return exact_index_cache_ != nullptr;
 }
@@ -353,7 +353,7 @@ double ZDD::indexed_count() const {
     return 0.0;
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 std::string ZDD::indexed_exact_count() const {
     // Handle terminal cases directly
     if (is_zero()) {
@@ -375,7 +375,7 @@ std::string ZDD::indexed_exact_count() const {
 
     auto it = exact_index_cache_->count_cache.find(root);
     if (it != exact_index_cache_->count_cache.end()) {
-        return it->second.get_str();
+        return exact_int_to_str(it->second);
     }
 
     return "0";
@@ -511,17 +511,17 @@ std::set<bddvar> ZDD::get_set(int64_t order) const {
     return result;
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 // Helper: Get GMP count stored for an arc
-static mpz_class get_arc_count_gmp(const ZDDExactIndexData* cache, Arc arc) {
+static exact_int_t get_arc_count_exact(const ZDDExactIndexData* cache, Arc arc) {
     if (arc.is_constant()) {
-        return (arc == ARC_TERMINAL_1) ? mpz_class(1) : mpz_class(0);
+        return (arc == ARC_TERMINAL_1) ? exact_int_t(1) : exact_int_t(0);
     }
     auto it = cache->count_cache.find(arc);
     if (it != cache->count_cache.end()) {
         return it->second;
     }
-    return mpz_class(0);
+    return exact_int_t(0);
 }
 
 std::string ZDD::exact_order_of(const std::set<bddvar>& s) const {
@@ -544,7 +544,7 @@ std::string ZDD::exact_order_of(const std::set<bddvar>& s) const {
         current = Arc::node(current.index(), false);
     }
 
-    mpz_class order(0);
+    exact_int_t order(0);
 
     while (!current.is_constant()) {
         const DDNode& node = manager_->node_at(current.index());
@@ -557,14 +557,14 @@ std::string ZDD::exact_order_of(const std::set<bddvar>& s) const {
             remaining.erase(var);
             current = child1;
         } else {
-            mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+            exact_int_t count1 = get_arc_count_exact(exact_index_cache_.get(), child1);
             order += count1;
             current = child0;
         }
     }
 
     if (current == ARC_TERMINAL_1 && remaining.empty()) {
-        return order.get_str();
+        return exact_int_to_str(order);
     }
 
     return "-1";
@@ -580,7 +580,7 @@ std::set<bddvar> ZDD::exact_get_set(const std::string& order_str) const {
         return result;
     }
 
-    mpz_class order(order_str);
+    exact_int_t order(order_str);
     if (order < 0) {
         return result;
     }
@@ -602,7 +602,7 @@ std::set<bddvar> ZDD::exact_get_set(const std::string& order_str) const {
         Arc child1 = node.arc1();
         Arc child0 = node.arc0();
 
-        mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+        exact_int_t count1 = get_arc_count_exact(exact_index_cache_.get(), child1);
 
         if (order < count1) {
             result.insert(var);
@@ -823,7 +823,7 @@ int64_t ZDD::sum_weight(const std::vector<int64_t>& weights) const {
     return sto[root];
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 std::string ZDD::exact_sum_weight(const std::vector<int64_t>& weights) const {
     if (is_zero()) {
         return "0";
@@ -837,9 +837,9 @@ std::string ZDD::exact_sum_weight(const std::vector<int64_t>& weights) const {
         return "0";
     }
 
-    std::unordered_map<Arc, mpz_class, ArcHash, ArcEqual> sto;
-    sto[ARC_TERMINAL_0] = mpz_class(0);
-    sto[ARC_TERMINAL_1] = mpz_class(0);
+    std::unordered_map<Arc, exact_int_t, ArcHash, ArcEqual> sto;
+    sto[ARC_TERMINAL_0] = exact_int_t(0);
+    sto[ARC_TERMINAL_1] = exact_int_t(0);
 
     int min_level = exact_index_cache_->min_level;
     int root_level = exact_index_cache_->height;
@@ -855,16 +855,16 @@ std::string ZDD::exact_sum_weight(const std::vector<int64_t>& weights) const {
             Arc child0 = dd_node.arc0();
             Arc child1 = dd_node.arc1();
 
-            mpz_class sum0 = sto[child0];
-            mpz_class sum1 = sto[child1];
-            mpz_class var_weight = (var < weights.size()) ? mpz_class(weights[var]) : mpz_class(0);
-            mpz_class count1 = get_arc_count_gmp(exact_index_cache_.get(), child1);
+            exact_int_t sum0 = sto[child0];
+            exact_int_t sum1 = sto[child1];
+            exact_int_t var_weight = (var < weights.size()) ? exact_int_t(weights[var]) : exact_int_t(0);
+            exact_int_t count1 = get_arc_count_exact(exact_index_cache_.get(), child1);
 
             sto[node] = sum0 + sum1 + var_weight * count1;
         }
     }
 
-    return sto[root].get_str();
+    return exact_int_to_str(sto[root]);
 }
 #endif
 

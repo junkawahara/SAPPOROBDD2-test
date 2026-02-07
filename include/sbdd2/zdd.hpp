@@ -68,7 +68,7 @@ private:
     mutable std::unique_ptr<std::once_flag> index_once_flag_;
     mutable std::unique_ptr<ZDDIndexData> index_cache_;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     mutable std::unique_ptr<std::once_flag> exact_index_once_flag_;
     mutable std::unique_ptr<ZDDExactIndexData> exact_index_cache_;
 #endif
@@ -82,7 +82,7 @@ public:
     ZDD() : DDBase(),
         index_once_flag_(new std::once_flag()),
         index_cache_(nullptr)
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
         , exact_index_once_flag_(new std::once_flag())
         , exact_index_cache_(nullptr)
 #endif
@@ -96,7 +96,7 @@ public:
     ZDD(DDManager* mgr, Arc a) : DDBase(mgr, a),
         index_once_flag_(new std::once_flag()),
         index_cache_(nullptr)
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
         , exact_index_once_flag_(new std::once_flag())
         , exact_index_cache_(nullptr)
 #endif
@@ -109,7 +109,7 @@ public:
     ZDD(const ZDD& other) : DDBase(other),
         index_once_flag_(new std::once_flag()),
         index_cache_(nullptr)
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
         , exact_index_once_flag_(new std::once_flag())
         , exact_index_cache_(nullptr)
 #endif
@@ -122,7 +122,7 @@ public:
     ZDD(ZDD&& other) noexcept : DDBase(std::move(other)),
         index_once_flag_(new std::once_flag()),
         index_cache_(nullptr)
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
         , exact_index_once_flag_(new std::once_flag())
         , exact_index_cache_(nullptr)
 #endif
@@ -138,7 +138,7 @@ public:
             // 新しいonce_flagを作成して再構築可能にする
             index_once_flag_.reset(new std::once_flag());
             index_cache_.reset();
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
             exact_index_once_flag_.reset(new std::once_flag());
             exact_index_cache_.reset();
 #endif
@@ -156,7 +156,7 @@ public:
             // 新しいonce_flagを作成して再構築可能にする
             index_once_flag_.reset(new std::once_flag());
             index_cache_.reset();
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
             exact_index_once_flag_.reset(new std::once_flag());
             exact_index_cache_.reset();
 #endif
@@ -336,7 +336,7 @@ public:
      */
     double count() const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief 集合族に含まれる集合の数（厳密計算）
      * @return |F| を文字列で返す
@@ -578,7 +578,7 @@ public:
      */
     void build_index() const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief インデックスを構築（GMP版）
      *
@@ -605,7 +605,7 @@ public:
      */
     bool has_index() const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief インデックスが構築済みか確認（GMP版）
      * @return 構築済みならtrue
@@ -640,7 +640,7 @@ public:
      */
     double indexed_count() const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief インデックスを使ったカウント（GMP版）
      * @return 集合族に含まれる集合の数（文字列形式）
@@ -666,7 +666,7 @@ public:
      */
     int64_t order_of(const std::set<bddvar>& s) const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief 集合から辞書順番号を取得（GMP版）
      * @param s 検索する集合
@@ -684,7 +684,7 @@ public:
      */
     std::set<bddvar> get_set(int64_t order) const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief 辞書順番号から集合を取得（GMP版）
      * @param order 辞書順番号（0始まり）の文字列表現
@@ -743,7 +743,7 @@ public:
      */
     int64_t sum_weight(const std::vector<int64_t>& weights) const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief 全集合の重みの総和を計算（GMP版）
      * @param weights 各変数の重み
@@ -797,7 +797,7 @@ public:
         return get_set(order);
     }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief ZDD内から一様ランダムに集合を1つサンプリング（GMP版）
      * @tparam RNG C++11乱数生成器の型
@@ -816,24 +816,18 @@ public:
             return std::set<bddvar>();
         }
 
-        // GMP版インデックスを構築してカウントを取得
+        // 厳密整数版インデックスを構築してカウントを取得
         std::string total_str = indexed_exact_count();
-        mpz_class total(total_str);
+        exact_int_t total(total_str);
 
         if (total <= 0) {
             return std::set<bddvar>();
         }
 
-        // GMP乱数生成器を使用
-        gmp_randclass gmp_rng(gmp_randinit_default);
-        // C++乱数生成器からシードを取得
-        std::uniform_int_distribution<unsigned long> seed_dist;
-        gmp_rng.seed(seed_dist(rng));
-
         // 0からtotal-1までの一様分布で辞書順番号を生成
-        mpz_class order = gmp_rng.get_z_range(total);
+        exact_int_t order = exact_int_random(total, rng);
 
-        return exact_get_set(order.get_str());
+        return exact_get_set(exact_int_to_str(order));
     }
 #endif
 
@@ -912,7 +906,7 @@ private:
     /// @{
     void ensure_index() const;
     void build_index_impl() const;
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     void ensure_exact_index() const;
     void build_exact_index_impl() const;
 #endif

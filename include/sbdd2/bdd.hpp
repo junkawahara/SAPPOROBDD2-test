@@ -286,7 +286,7 @@ public:
      */
     double count(bddvar max_var) const;
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
     /**
      * @brief 充足割当数を計算（厳密計算）
      * @return 充足割当数を文字列で返す

@@ -482,7 +482,7 @@ TEST(ZDDLevelTest, MeetWithDifferentLevels) {
     EXPECT_EQ(m2, s1);
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST(ZDDExactCountTest, MatchesCard) {
     DDManager mgr;
 
@@ -650,7 +650,7 @@ TEST_F(ZDDIndexTest, CopyDoesNotShareIndex) {
     EXPECT_TRUE(ps_copy.has_index());
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST_F(ZDDIndexTest, ExactCountMatches) {
     ZDD ps = get_power_set(mgr, 3);
 
@@ -746,7 +746,7 @@ TEST_F(ZDDIndexTest, OrderOfAllPowerSetElements) {
     EXPECT_EQ(orders.size(), 8u);  // All unique
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST_F(ZDDIndexTest, ExactOrderOfRoundTrip) {
     ZDD ps = get_power_set(mgr, 3);
 
@@ -868,7 +868,7 @@ TEST_F(ZDDIndexTest, NegativeWeights) {
     EXPECT_EQ(result.count(1), 1u);
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST_F(ZDDIndexTest, ExactSumWeight) {
     ZDD ps = get_power_set(mgr, 3);
 
@@ -963,7 +963,7 @@ TEST_F(ZDDIndexTest, SampleRandomlyDistribution) {
     }
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST_F(ZDDIndexTest, ExactSampleRandomlyPowerSet) {
     ZDD ps = get_power_set(mgr, 3);  // 8 sets
 

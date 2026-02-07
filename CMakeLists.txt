@@ -43,7 +43,25 @@ if(SBDD2_USE_GMP)
     endif()
 
     if(NOT SBDD2_HAS_GMP)
-        message(STATUS "GMP not found - exact_count() disabled")
+        message(STATUS "GMP not found - looking for BigInt fallback")
+    endif()
+endif()
+
+# BigInt fallback (used when GMP is not available)
+set(SBDD2_HAS_BIGINT OFF)
+
+if(NOT SBDD2_HAS_GMP)
+    # Look for BigInt header in parent directory
+    set(BIGINT_SEARCH_PATHS
+        "${CMAKE_CURRENT_SOURCE_DIR}/../bigint/include"
+    )
+    find_path(BIGINT_INCLUDE_DIR bigint/bigint.hpp PATHS ${BIGINT_SEARCH_PATHS} NO_DEFAULT_PATH)
+
+    if(BIGINT_INCLUDE_DIR)
+        set(SBDD2_HAS_BIGINT ON)
+        message(STATUS "BigInt found at ${BIGINT_INCLUDE_DIR} - exact_count() enabled (BigInt fallback)")
+    else()
+        message(STATUS "Neither GMP nor BigInt found - exact_count() disabled")
     endif()
 endif()
 
@@ -69,6 +87,7 @@ set(SBDD2_SOURCES
     src/gbase.cpp
     src/bddct.cpp
     src/io.cpp
+    src/mvdd_node_ref.cpp
 )
 
 # Header files
@@ -93,6 +112,7 @@ set(SBDD2_HEADERS
     include/sbdd2/io.hpp
     include/sbdd2/exception.hpp
     include/sbdd2/sbdd2.hpp
+    include/sbdd2/mvdd_node_ref.hpp
 )
 
 # Static library
@@ -105,6 +125,9 @@ if(SBDD2_BUILD_STATIC)
         target_compile_definitions(sbdd2_static PUBLIC SBDD2_HAS_GMP)
         target_include_directories(sbdd2_static PUBLIC ${GMP_INCLUDE_DIRS})
         target_link_libraries(sbdd2_static PUBLIC ${GMP_LIBRARIES})
+    elseif(SBDD2_HAS_BIGINT)
+        target_compile_definitions(sbdd2_static PUBLIC SBDD2_HAS_BIGINT)
+        target_include_directories(sbdd2_static PUBLIC ${BIGINT_INCLUDE_DIR})
     endif()
 endif()
 
@@ -118,6 +141,9 @@ if(SBDD2_BUILD_SHARED)
         target_compile_definitions(sbdd2_shared PUBLIC SBDD2_HAS_GMP)
         target_include_directories(sbdd2_shared PUBLIC ${GMP_INCLUDE_DIRS})
         target_link_libraries(sbdd2_shared PUBLIC ${GMP_LIBRARIES})
+    elseif(SBDD2_HAS_BIGINT)
+        target_compile_definitions(sbdd2_shared PUBLIC SBDD2_HAS_BIGINT)
+        target_include_directories(sbdd2_shared PUBLIC ${BIGINT_INCLUDE_DIR})
     endif()
 endif()
 

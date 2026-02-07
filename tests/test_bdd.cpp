@@ -215,7 +215,7 @@ TEST_F(BDDTest, LowHigh) {
     EXPECT_TRUE(not_x1.high().is_zero());
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 TEST(BDDExactCountTest, MatchesCard) {
     DDManager mgr;
 

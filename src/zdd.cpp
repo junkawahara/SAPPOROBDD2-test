@@ -10,8 +10,8 @@
 #include <unordered_map>
 #include <functional>
 
-#ifdef SBDD2_HAS_GMP
-#include <gmpxx.h>
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+#include "sbdd2/exact_int.hpp"
 #endif
 
 namespace sbdd2 {
@@ -559,29 +559,29 @@ double ZDD::count() const {
     return card();
 }
 
-#ifdef SBDD2_HAS_GMP
+#if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
 std::string ZDD::exact_count() const {
     if (!manager_) return "0";
     if (arc_ == ARC_TERMINAL_0) return "0";
     if (arc_ == ARC_TERMINAL_1) return "1";
 
-    std::unordered_map<bddindex, mpz_class> memo;
+    std::unordered_map<bddindex, exact_int_t> memo;
 
-    std::function<mpz_class(Arc)> count_rec = [&](Arc a) -> mpz_class {
-        if (a == ARC_TERMINAL_0) return 0;
-        if (a == ARC_TERMINAL_1) return 1;
+    std::function<exact_int_t(Arc)> count_rec = [&](Arc a) -> exact_int_t {
+        if (a == ARC_TERMINAL_0) return exact_int_t(0);
+        if (a == ARC_TERMINAL_1) return exact_int_t(1);
 
         bddindex idx = a.index();
         auto it = memo.find(idx);
         if (it != memo.end()) return it->second;
 
         const DDNode& node = manager_->node_at(idx);
-        mpz_class result = count_rec(node.arc0()) + count_rec(node.arc1());
+        exact_int_t result = count_rec(node.arc0()) + count_rec(node.arc1());
         memo[idx] = result;
         return result;
     };
 
-    return count_rec(arc_).get_str();
+    return exact_int_to_str(count_rec(arc_));
 }
 #endif
 
