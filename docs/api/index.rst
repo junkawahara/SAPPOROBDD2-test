@@ -121,7 +121,7 @@ VarArity Spec（実行時ARITY指定）
 * ``zddUnionVA`` / ``zddIntersectionVA`` - VarArity用Spec演算子
 
 厳密カウント（GMP / BigInt）
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 * ``BDD::exact_count()`` - 任意精度のBDD充足割当数
 * ``ZDD::exact_count()`` - 任意精度のZDD集合数
