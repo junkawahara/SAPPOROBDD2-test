@@ -190,11 +190,11 @@ Meet演算
    // Meet: 要素ごとの積集合
    ZDD meet_result = zdd_meet(a, b);  // {{2}} ({1,2} ∩ {2,3} = {2})
 
-厳密カウント（GMP）
-~~~~~~~~~~~~~~~~~~~
+厳密カウント（GMP / BigInt）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 大規模な集合族では、集合数がdouble精度（2^53まで）を超える場合があります。
-GMPがインストールされている場合、``exact_count()`` で任意精度の厳密なカウントが可能です。
+GMPまたはBigIntライブラリが利用可能な場合、``exact_count()`` で任意精度の厳密なカウントが可能です。
 
 .. code-block:: cpp
 
@@ -204,8 +204,8 @@ GMPがインストールされている場合、``exact_count()`` で任意精�
    // 通常のカウント（double）
    double approx = ps.card();  // 1048576.0
 
-   // 厳密カウント（GMP使用、文字列で返す）
-   #ifdef SBDD2_HAS_GMP
+   // 厳密カウント（文字列で返す）
+   #if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
    std::string exact = ps.exact_count();  // "1048576"
 
    // より大規模な例（60変数）
@@ -216,8 +216,8 @@ GMPがインストールされている場合、``exact_count()`` で任意精�
    #endif
 
 .. note::
-   ``exact_count()`` は ``SBDD2_HAS_GMP`` が定義されている場合のみ使用可能です。
-   GMPがインストールされていれば、CMakeが自動検出します。
+   ``exact_count()`` は ``SBDD2_HAS_GMP`` または ``SBDD2_HAS_BIGINT`` が定義されている場合に使用可能です。
+   CMakeがGMPを自動検出し、見つからない場合はBigIntライブラリをフォールバックとして使用します。
 
 ZDDイテレータ
 -------------
@@ -319,21 +319,21 @@ ZDDIndexData
 * ``count_cache`` - ノードから経路数へのマッピング
 * ``height`` - ZDDの高さ（ルートノードのレベル）
 
-ZDDExactIndexData（GMP版）
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ZDDExactIndexData（厳密整数版）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-各ノードから1終端までの経路数をmpz_class（GMP任意精度整数）で格納します。
+各ノードから1終端までの経路数を厳密整数型（GMP の ``mpz_class`` または ``bigint::BigInt``）で格納します。
 
 **メンバ変数**:
 
 * ``level_nodes`` - レベルごとのノードリスト
 * ``node_to_idx`` - ノードからレベル内インデックスへのマッピング
-* ``count_cache`` - ノードから経路数へのマッピング（mpz_class型）
+* ``count_cache`` - ノードから経路数へのマッピング（``exact_int_t`` 型）
 * ``height`` - ZDDの高さ
 
 .. note::
-   ``ZDDExactIndexData`` は ``SBDD2_HAS_GMP`` が定義されている場合のみ使用可能です。
-   GMPがインストールされていない環境ではコンパイルされません。
+   ``ZDDExactIndexData`` は ``SBDD2_HAS_GMP`` または ``SBDD2_HAS_BIGINT`` が定義されている場合に使用可能です。
+   どちらもインストールされていない環境ではコンパイルされません。
 
 インデックスの使用
 ~~~~~~~~~~~~~~~~~~

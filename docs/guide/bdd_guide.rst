@@ -242,15 +242,15 @@ Shannon展開の関係式:
        }
    }
 
-厳密カウント（GMP）
-~~~~~~~~~~~~~~~~~~~~
+厳密カウント（GMP / BigInt）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 2^53 を超える大きな値でも正確にカウントできます。
 
 .. code-block:: cpp
 
-   #ifdef SBDD2_HAS_GMP
-   // exact_count(): GMP を使った厳密カウント
+   #if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+   // exact_count(): 任意精度の厳密カウント
    std::string exact = f.exact_count();
    std::cout << "厳密カウント: " << exact << std::endl;
    #endif

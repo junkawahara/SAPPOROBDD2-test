@@ -240,8 +240,8 @@ change
    double n = f.card();          // 4.0
    double n2 = f.count();        // 4.0（card の別名）
 
-   // 厳密カウント（GMP）
-   #ifdef SBDD2_HAS_GMP
+   // 厳密カウント（GMP / BigInt）
+   #if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
    std::string exact = f.exact_count();  // "4"
    #endif
 
@@ -566,12 +566,12 @@ ZDDインデックスは、集合族内の集合に辞書順の番号を付け�
    for (bddvar v : result) std::cout << v << " ";
    std::cout << "}" << std::endl;
 
-GMP版（厳密インデックス）
-~~~~~~~~~~~~~~~~~~~~~~~~~
+厳密整数版インデックス（GMP / BigInt）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: cpp
 
-   #ifdef SBDD2_HAS_GMP
+   #if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
    // 厳密カウント版のインデックス
    f.build_exact_index();
    std::string exact_count = f.indexed_exact_count();
