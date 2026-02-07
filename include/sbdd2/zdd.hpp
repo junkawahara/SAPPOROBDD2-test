@@ -759,7 +759,7 @@ public:
 
     /**
      * @brief ZDD内から一様ランダムに集合を1つサンプリング
-     * @tparam RNG C++11乱数生成器の型（std::mt19937など）
+     * @tparam RNG C++11乱数生成器の型 (std::mt19937等)
      * @param rng 乱数生成器への参照
      * @return ランダムに選択された集合
      *

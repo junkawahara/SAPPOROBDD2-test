@@ -170,6 +170,18 @@ public:
     /**
      * @brief 新しい変数を作成
      * @return 作成された変数番号（1から開始）
+     *
+     * 変数は1から順に番号が付与されます。作成後は var_bdd() や var_zdd() で
+     * DD変数として利用できます。
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * bddvar v1 = mgr.new_var();  // v1 == 1
+     * bddvar v2 = mgr.new_var();  // v2 == 2
+     * BDD x1 = mgr.var_bdd(v1);
+     * @endcode
+     *
+     * @see var_bdd(), var_zdd(), var_count()
      */
     bddvar new_var();
 
@@ -186,6 +198,16 @@ public:
      * @throw std::out_of_range レベルが範囲外の場合
      *
      * 指定レベルに新しい変数を挿入し、それ以降のレベルをシフトします。
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();  // 変数1, レベル1
+     * mgr.new_var();  // 変数2, レベル2
+     * // レベル2に新変数を挿入（変数2のレベルは3にシフト）
+     * bddvar v3 = mgr.new_var_of_lev(2);
+     * @endcode
+     *
+     * @see new_var(), lev_of_var(), var_of_lev()
      */
     bddvar new_var_of_lev(bddvar lev);
 
@@ -194,6 +216,8 @@ public:
      * @param v 変数番号
      * @return 変数のレベル
      * @throw std::out_of_range 変数番号が範囲外の場合
+     *
+     * @see var_of_lev(), new_var_of_lev()
      */
     bddvar lev_of_var(bddvar v) const;
 
@@ -202,6 +226,8 @@ public:
      * @param lev レベル
      * @return そのレベルの変数番号
      * @throw std::out_of_range レベルが範囲外の場合
+     *
+     * @see lev_of_var(), new_var_of_lev()
      */
     bddvar var_of_lev(bddvar lev) const;
 
@@ -311,6 +337,20 @@ public:
      * @brief 変数BDDを取得
      * @param v 変数番号
      * @return 変数vを表すBDD（x_v）
+     *
+     * 変数vに対応する単一変数のBDDを返します。
+     * v=1のとき真、v=0のとき偽を返すBDDノードです。
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * mgr.new_var();
+     * BDD x1 = mgr.var_bdd(1);
+     * BDD x2 = mgr.var_bdd(2);
+     * BDD f = x1 & x2;  // x1 AND x2
+     * @endcode
+     *
+     * @see var_zdd(), new_var(), bdd_zero(), bdd_one()
      */
     BDD var_bdd(bddvar v);
 
@@ -318,30 +358,51 @@ public:
      * @brief 変数ZDDを取得
      * @param v 変数番号
      * @return 要素vのみを含む集合族 {{v}}
+     *
+     * 要素vのみからなる集合を唯一含む集合族 {{v}} を表すZDDを返します。
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * mgr.new_var();
+     * ZDD z1 = mgr.var_zdd(1);  // {{1}}
+     * ZDD z2 = mgr.var_zdd(2);  // {{2}}
+     * ZDD z = z1 + z2;  // {{1}, {2}} （和集合）
+     * @endcode
+     *
+     * @see var_bdd(), new_var(), zdd_empty(), zdd_base()
      */
     ZDD var_zdd(bddvar v);
 
     /**
      * @brief BDDの定数0を取得
      * @return 偽を表すBDD
+     *
+     * @see bdd_one(), var_bdd()
      */
     BDD bdd_zero();
 
     /**
      * @brief BDDの定数1を取得
      * @return 真を表すBDD
+     *
+     * @see bdd_zero(), var_bdd()
      */
     BDD bdd_one();
 
     /**
      * @brief 空集合族を取得
      * @return 空のZDD
+     *
+     * @see zdd_base(), var_zdd()
      */
     ZDD zdd_empty();
 
     /**
      * @brief 基底集合族を取得
      * @return 空集合のみを含むZDD {∅}
+     *
+     * @see zdd_empty(), var_zdd()
      */
     ZDD zdd_base();
 
@@ -408,6 +469,8 @@ public:
      * @brief 型Tの終端テーブルを取得または作成
      * @tparam T 終端値の型
      * @return 終端テーブルへの参照
+     *
+     * @see MTBDD, MTZDD
      */
     template<typename T>
     MTBDDTerminalTable<T>& get_or_create_terminal_table();
@@ -658,6 +721,8 @@ private:
  * @return グローバルなデフォルトDDManager
  *
  * @note シングルスレッド環境での簡易使用を想定
+ *
+ * @see DDManager
  */
 DDManager& default_manager();
 

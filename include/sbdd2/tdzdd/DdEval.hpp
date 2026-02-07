@@ -1,9 +1,16 @@
-/*
- * DdEval.hpp - TdZdd-compatible Evaluation Interface for SAPPOROBDD2
+/**
+ * @file DdEval.hpp
+ * @brief TdZdd互換のDD評価（Eval）インターフェース
  *
- * Based on TdZdd by Hiroaki Iwashita
+ * DDをボトムアップに走査し、各ノードで評価値を計算するための
+ * 評価器（Evaluator）基底クラスと評価関数を提供する。
+ *
+ * 元のTdZddライブラリ（岩下洋哉氏）に基づく。
  * Copyright (c) 2014 ERATO MINATO Project
- * Ported to SAPPOROBDD2 namespace
+ * SAPPOROBDD2名前空間に移植。
+ *
+ * @see DdSpec.hpp Spec基底クラス
+ * @see Sbdd2Builder.hpp ビルダー関数群
  */
 
 #pragma once
@@ -18,10 +25,13 @@ namespace sbdd2 {
 namespace tdzdd {
 
 /**
- * Collection of child node values/levels for
- * DdEval::evalNode function interface.
- * @tparam T data type of work area for each node.
- * @tparam ARITY the number of children for each node.
+ * @brief DdEval::evalNodeに渡す子ノード値・レベルのコレクション
+ *
+ * 各子ノードの評価値とレベルを保持し、evalNodeメソッドから参照できるようにする。
+ *
+ * @tparam T 各ノードの作業領域のデータ型
+ * @tparam ARITY ノードの子の数
+ * @see DdEval
  */
 template<typename T, int ARITY>
 class DdValues {
@@ -30,9 +40,9 @@ class DdValues {
 
 public:
     /**
-     * Returns the value of the b-th child.
-     * @param b branch index.
-     * @return value of the b-th child.
+     * @brief 第b番目の子ノードの評価値を取得する
+     * @param b 分岐インデックス（0 ~ ARITY-1）
+     * @return 子ノードの評価値への参照
      */
     T const& get(int b) const {
         assert(0 <= b && b < ARITY);
@@ -40,25 +50,41 @@ public:
     }
 
     /**
-     * Returns the level of the b-th child.
-     * @param b branch index.
-     * @return level of the b-th child.
+     * @brief 第b番目の子ノードのレベルを取得する
+     * @param b 分岐インデックス（0 ~ ARITY-1）
+     * @return 子ノードのレベル
      */
     int getLevel(int b) const {
         assert(0 <= b && b < ARITY);
         return level_[b];
     }
 
+    /**
+     * @brief 第b番目の子ノードの評価値への参照を設定する（内部用）
+     * @param b 分岐インデックス
+     * @param v 評価値への参照
+     */
     void setReference(int b, T const& v) {
         assert(0 <= b && b < ARITY);
         value_[b] = &v;
     }
 
+    /**
+     * @brief 第b番目の子ノードのレベルを設定する（内部用）
+     * @param b 分岐インデックス
+     * @param i レベル値
+     */
     void setLevel(int b, int i) {
         assert(0 <= b && b < ARITY);
         level_[b] = i;
     }
 
+    /**
+     * @brief DdValuesの内容を出力ストリームに書き出す
+     * @param os 出力ストリーム
+     * @param o DdValuesオブジェクト
+     * @return 出力ストリームへの参照
+     */
     friend std::ostream& operator<<(std::ostream& os, DdValues const& o) {
         os << "(";
         for (int b = 0; b < ARITY; ++b) {
@@ -70,70 +96,87 @@ public:
 };
 
 /**
- * Base class of DD evaluators.
+ * @brief DD評価器の基底クラス
  *
- * Every implementation must define the following functions:
- * - void evalTerminal(T& v, int id)
- * - void evalNode(T& v, int level, DdValues<T,ARITY> const& values)
+ * DDをボトムアップに走査し、各ノードで評価値を計算するための基底クラス。
+ * CRTPパターンを使用する。
  *
- * Optionally, the following functions can be overloaded:
- * - bool showMessages()
- * - void initialize(int level)
- * - R getValue(T const& work)
- * - void destructLevel(int i)
+ * 派生クラスは以下のメソッドを必ず実装する:
+ * - void evalTerminal(T& v, int id) : 終端ノードの評価値を設定する
+ *   - id=0: 0終端, id=1: 1終端
+ * - void evalNode(T& v, int level, DdValues<T,ARITY> const& values) : 非終端ノードの評価値を計算する
  *
- * @tparam E the class implementing this class.
- * @tparam T data type of work area for each node.
- * @tparam R data type of return value.
- * @tparam ARITY arity of the DD (default 2).
+ * オプションでオーバーライド可能なメソッド:
+ * - bool showMessages() : メッセージ表示の有無（デフォルト: false）
+ * - void initialize(int level) : 最大レベルでの初期化処理
+ * - R getValue(T const& work) : 最終結果値の変換（デフォルト: R(work)）
+ * - void destructLevel(int i) : レベルごとのリソース解放
+ *
+ * @tparam E このクラスを実装する派生クラス（CRTP）
+ * @tparam T 各ノードの作業領域のデータ型
+ * @tparam R 評価結果のデータ型（デフォルト: T）
+ * @tparam ARITY DDのアリティ（デフォルト: 2）
+ * @see DdValues 子ノード値のコレクション
+ * @see CardinalityEval 解の数を数える評価器
+ * @see evaluate_spec Specの評価関数
+ * @see zdd_evaluate ZDDの評価関数
+ * @see bdd_evaluate BDDの評価関数
  */
 template<typename E, typename T, typename R = T, int ARITY = 2>
 class DdEval {
 public:
+    /**
+     * @brief CRTP派生クラスの参照を取得する
+     * @return 派生クラスへの参照
+     */
     E& entity() {
         return *static_cast<E*>(this);
     }
 
+    /**
+     * @brief CRTP派生クラスのconst参照を取得する
+     * @return 派生クラスへのconst参照
+     */
     E const& entity() const {
         return *static_cast<E const*>(this);
     }
 
     /**
-     * Declares thread-safety.
-     * @return true if this class is thread-safe.
+     * @brief スレッドセーフかどうかを宣言する
+     * @return スレッドセーフならtrue
      */
     bool isThreadSafe() const {
         return true;
     }
 
     /**
-     * Declares preference to show messages.
-     * @return true if messages are preferred.
+     * @brief メッセージ表示を希望するかどうかを宣言する
+     * @return メッセージを表示する場合true
      */
     bool showMessages() const {
         return false;
     }
 
     /**
-     * Initialization.
-     * @param level the maximum level of the DD.
+     * @brief 評価の初期化処理を行う
+     * @param level DDの最大レベル
      */
     void initialize(int level) {
         (void)level;
     }
 
     /**
-     * Makes a result value.
-     * @param v work area value for the root node.
-     * @return final value of the evaluation.
+     * @brief ルートノードの作業領域値から最終結果を生成する
+     * @param v ルートノードの作業領域値
+     * @return 評価の最終結果
      */
     R getValue(T const& v) {
         return R(v);
     }
 
     /**
-     * Destructs i-th level of data storage.
-     * @param i the level to be destructed.
+     * @brief 指定レベルのデータストレージを破棄する
+     * @param i 破棄するレベル
      */
     void destructLevel(int i) {
         (void)i;
@@ -141,15 +184,32 @@ public:
 };
 
 /**
- * Cardinality evaluator - counts the number of solutions in a ZDD.
- * This is a simple evaluator that can be used with evaluate_spec().
+ * @brief 解の数（カーディナリティ）を数える評価器
+ *
+ * ZDDに含まれる解集合の要素数を計算する。
+ * 0終端は値0、1終端は値1とし、各ノードで0枝と1枝の値を合計する。
+ *
+ * @see DdEval 基底クラス
+ * @see evaluate_spec Specの評価関数
+ * @see zdd_evaluate ZDDの評価関数
  */
 class CardinalityEval : public DdEval<CardinalityEval, double, double, 2> {
 public:
+    /**
+     * @brief 終端ノードの評価値を設定する
+     * @param v 評価値の格納先
+     * @param id 終端ID（0: 0終端, 1: 1終端）
+     */
     void evalTerminal(double& v, int id) {
         v = (id == 1) ? 1.0 : 0.0;
     }
 
+    /**
+     * @brief 非終端ノードの評価値を計算する（0枝+1枝の合計）
+     * @param v 評価値の格納先
+     * @param level 現在のレベル（未使用）
+     * @param values 子ノードの評価値コレクション
+     */
     void evalNode(double& v, int level, DdValues<double, 2> const& values) {
         (void)level;
         v = values.get(0) + values.get(1);
@@ -157,16 +217,19 @@ public:
 };
 
 /**
- * Evaluate a spec using an evaluator.
- * This evaluates the spec by traversing it top-down and computing values bottom-up.
+ * @brief Specを評価器で評価する
  *
- * @tparam SPEC The spec type
- * @tparam E Evaluator type
- * @tparam T Work area type
- * @tparam R Return type
- * @param spec The spec to evaluate
- * @param eval The evaluator instance
- * @return Evaluation result
+ * Specをトップダウンに展開し、ボトムアップに評価値を計算する。
+ * 再帰的な走査により結果を求める。
+ *
+ * @tparam SPEC Spec型
+ * @tparam E 評価器型（DdEval派生クラス）
+ * @tparam T 作業領域のデータ型
+ * @tparam R 結果のデータ型
+ * @param spec 評価対象のSpec
+ * @param eval_base 評価器インスタンス
+ * @return 評価結果
+ * @see DdEval 評価器基底クラス
  */
 template<typename SPEC, typename E, typename T, typename R>
 R evaluate_spec(SPEC& spec, DdEval<E, T, R, 2>& eval_base) {
@@ -250,16 +313,20 @@ R evaluate_spec(SPEC& spec, DdEval<E, T, R, 2>& eval_base) {
 }
 
 /**
- * Evaluate a ZDD using a DdEval evaluator.
- * This traverses the ZDD bottom-up and applies the evaluator to compute a result.
+ * @brief ZDDを評価器で評価する
  *
- * @tparam E Evaluator type (derived from DdEval)
- * @tparam T Work area type
- * @tparam R Return type
- * @tparam ARITY Arity of the DD (default 2)
- * @param zdd The ZDD to evaluate
- * @param eval_base The evaluator instance
- * @return Evaluation result
+ * ZDDをボトムアップに走査し、評価器を適用して結果を計算する。
+ * BFSでノードを収集した後、レベル順に評価を行う。
+ *
+ * @tparam E 評価器型（DdEval派生クラス）
+ * @tparam T 作業領域のデータ型
+ * @tparam R 結果のデータ型
+ * @tparam ARITY DDのアリティ（デフォルト: 2）
+ * @param zdd 評価対象のZDD
+ * @param eval_base 評価器インスタンス
+ * @return 評価結果
+ * @see DdEval 評価器基底クラス
+ * @see bdd_evaluate BDDの評価関数
  */
 template<typename E, typename T, typename R, int ARITY>
 R zdd_evaluate(ZDD const& zdd, DdEval<E, T, R, ARITY>& eval_base);
@@ -395,16 +462,21 @@ R zdd_evaluate(ZDD const& zdd, DdEval<E, T, R, ARITY>& eval_base) {
 }
 
 /**
- * Evaluate a BDD using a DdEval evaluator.
- * This traverses the BDD bottom-up and applies the evaluator to compute a result.
+ * @brief BDDを評価器で評価する
  *
- * @tparam E Evaluator type (derived from DdEval)
- * @tparam T Work area type
- * @tparam R Return type
- * @tparam ARITY Arity of the DD (default 2)
- * @param bdd The BDD to evaluate
- * @param eval_base The evaluator instance
- * @return Evaluation result
+ * BDDをボトムアップに走査し、評価器を適用して結果を計算する。
+ * BFSでノードを収集した後、レベル順に評価を行う。
+ * BDDの否定辺はインデックスのマスクにより正規化される。
+ *
+ * @tparam E 評価器型（DdEval派生クラス）
+ * @tparam T 作業領域のデータ型
+ * @tparam R 結果のデータ型
+ * @tparam ARITY DDのアリティ（デフォルト: 2）
+ * @param bdd 評価対象のBDD
+ * @param eval_base 評価器インスタンス
+ * @return 評価結果
+ * @see DdEval 評価器基底クラス
+ * @see zdd_evaluate ZDDの評価関数
  */
 template<typename E, typename T, typename R, int ARITY>
 R bdd_evaluate(BDD const& bdd, DdEval<E, T, R, ARITY>& eval_base);

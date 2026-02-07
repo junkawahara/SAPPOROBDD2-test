@@ -1,3 +1,17 @@
+/**
+ * @file sbdd2.hpp
+ * @brief SAPPOROBDD 2.0 メインインクルードヘッダ
+ * @copyright MIT License
+ *
+ * SAPPOROBDD 2.0 ライブラリのすべてのヘッダファイルをインクルードする
+ * 統合ヘッダファイルです。このファイルをインクルードすることで、
+ * ライブラリの全機能を使用できます。
+ *
+ * @see BDD
+ * @see ZDD
+ * @see DDManager
+ */
+
 // SAPPOROBDD 2.0 - Main header file
 // MIT License
 
@@ -43,12 +57,17 @@
 
 namespace sbdd2 {
 
-// Library version
-constexpr int VERSION_MAJOR = 2;
-constexpr int VERSION_MINOR = 0;
-constexpr int VERSION_PATCH = 0;
+/// @name ライブラリバージョン情報
+/// @{
+constexpr int VERSION_MAJOR = 2;  ///< メジャーバージョン番号
+constexpr int VERSION_MINOR = 0;  ///< マイナーバージョン番号
+constexpr int VERSION_PATCH = 0;  ///< パッチバージョン番号
+/// @}
 
-// Version string
+/**
+ * @brief ライブラリのバージョン文字列を取得する
+ * @return バージョン文字列（例: "2.0.0"）
+ */
 inline const char* version() {
     return "2.0.0";
 }

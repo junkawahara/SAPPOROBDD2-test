@@ -25,18 +25,37 @@
 namespace sbdd2 {
 
 /**
- * @brief Arcのハッシュ関数
+ * @brief Arcのハッシュ関数オブジェクト
+ *
+ * unordered_mapなどのハッシュコンテナでArcをキーとして使用するためのハッシュ関数。
+ *
+ * @see ArcEqual, ZDDIndexData
  */
 struct ArcHash {
+    /**
+     * @brief Arcのハッシュ値を計算する
+     * @param arc ハッシュ対象のArc
+     * @return 計算されたハッシュ値
+     */
     std::size_t operator()(const Arc& arc) const {
         return std::hash<std::uint64_t>()(arc.data);
     }
 };
 
 /**
- * @brief Arcの等価比較関数
+ * @brief Arcの等価比較関数オブジェクト
+ *
+ * unordered_mapなどのハッシュコンテナでArcをキーとして使用するための等価比較関数。
+ *
+ * @see ArcHash, ZDDIndexData
  */
 struct ArcEqual {
+    /**
+     * @brief 二つのArcが等しいかどうかを判定する
+     * @param a 比較対象のArc
+     * @param b 比較対象のArc
+     * @return 二つのArcが等しければtrue、そうでなければfalse
+     */
     bool operator()(const Arc& a, const Arc& b) const {
         return a.data == b.data;
     }
@@ -45,54 +64,70 @@ struct ArcEqual {
 /**
  * @brief ZDDインデックスデータ（double版）
  *
- * 各ノードから1終端までの経路数をdoubleで格納する。
+ * 各ノードから1終端までの経路数をdoubleで格納するデータ構造。
  * 2^53までの精度で正確な値を保持できる。
+ * 辞書順アクセスやランダムサンプリングに使用する。
+ *
+ * @see ZDDExactIndexData, DictIterator, RandomIterator
  */
 struct ZDDIndexData {
-    /// レベルごとのノードリスト（level_nodes[level] = そのレベルの全ノード）
-    /// level 0 は未使用、level 1 から height まで使用
+    /// @brief レベルごとのノードリスト
+    /// level_nodes[level] でそのレベルの全ノードを取得できる。
+    /// level 0 は未使用、level 1 から height まで使用する。
     std::vector<std::vector<Arc>> level_nodes;
 
-    /// ノードからレベル内インデックスへのマッピング
+    /// @brief ノードからレベル内インデックスへのマッピング
     std::unordered_map<Arc, std::size_t, ArcHash, ArcEqual> node_to_idx;
 
-    /// ノードから経路数へのマッピング
+    /// @brief ノードから1終端までの経路数へのマッピング
     std::unordered_map<Arc, double, ArcHash, ArcEqual> count_cache;
 
-    /// ZDDの高さ（ルートノードのレベル = 最高レベル）
+    /// @brief ZDDの高さ（ルートノードのレベル = 最高レベル）
     int height;
 
-    /// 最低レベル（終端に最も近いレベル）
+    /// @brief 最低レベル（終端に最も近い非終端レベル）
     int min_level;
 
-    /// デフォルトコンストラクタ
+    /**
+     * @brief デフォルトコンストラクタ
+     *
+     * height と min_level を0に初期化する。
+     */
     ZDDIndexData() : height(0), min_level(0) {}
 };
 
 #ifdef SBDD2_HAS_GMP
 /**
- * @brief ZDDインデックスデータ（GMP版）
+ * @brief ZDDインデックスデータ（GMP任意精度版）
  *
- * 各ノードから1終端までの経路数をmpz_classで格納する。
- * 任意精度の整数値を扱える。
+ * 各ノードから1終端までの経路数をmpz_class（GMP多倍長整数）で格納する
+ * データ構造。2^53を超える大きな濃度のZDDでも正確な値を保持できる。
+ *
+ * @note このクラスはSBDD2_HAS_GMPが定義されている場合のみ利用可能。
+ * @see ZDDIndexData
  */
 struct ZDDExactIndexData {
-    /// レベルごとのノードリスト
+    /// @brief レベルごとのノードリスト
+    /// level_nodes[level] でそのレベルの全ノードを取得できる。
     std::vector<std::vector<Arc>> level_nodes;
 
-    /// ノードからレベル内インデックスへのマッピング
+    /// @brief ノードからレベル内インデックスへのマッピング
     std::unordered_map<Arc, std::size_t, ArcHash, ArcEqual> node_to_idx;
 
-    /// ノードから経路数へのマッピング（GMP）
+    /// @brief ノードから1終端までの経路数へのマッピング（GMP多倍長整数）
     std::unordered_map<Arc, mpz_class, ArcHash, ArcEqual> count_cache;
 
-    /// ZDDの高さ（ルートノードのレベル = 最高レベル）
+    /// @brief ZDDの高さ（ルートノードのレベル = 最高レベル）
     int height;
 
-    /// 最低レベル（終端に最も近いレベル）
+    /// @brief 最低レベル（終端に最も近い非終端レベル）
     int min_level;
 
-    /// デフォルトコンストラクタ
+    /**
+     * @brief デフォルトコンストラクタ
+     *
+     * height と min_level を0に初期化する。
+     */
     ZDDExactIndexData() : height(0), min_level(0) {}
 };
 #endif

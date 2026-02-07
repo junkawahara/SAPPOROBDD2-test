@@ -1,6 +1,11 @@
 BDDクラス
 =========
 
+.. seealso::
+
+   BDDの詳細ガイドは :doc:`../guide/bdd_guide` を参照してください。
+   SAT/制約充足への応用は :doc:`../application/sat_constraints` を参照してください。
+
 BDD
 ---
 

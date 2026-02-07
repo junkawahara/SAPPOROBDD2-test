@@ -1,8 +1,15 @@
-/*
- * Sbdd2BuilderMP.hpp - OpenMP Parallel TdZdd-style ZDD/BDD Builder for SAPPOROBDD2
+/**
+ * @file Sbdd2BuilderMP.hpp
+ * @brief OpenMP並列版TdZddスタイルのZDD/BDDビルダー
  *
- * Builds UnreducedZDD/ZDD from TdZdd-compatible specs using
- * parallel breadth-first top-down construction.
+ * TdZdd互換のSpecからUnreducedZDD/ZDD/UnreducedBDD/BDD/MVZDD/MVBDDを
+ * OpenMPによる並列幅優先トップダウン構築で生成する関数群を提供する。
+ * スレッドローカルストレージを用いて状態の重複排除を並列化し、
+ * その後グローバルにマージする方式を採用している。
+ *
+ * @see Sbdd2Builder.hpp
+ * @see Sbdd2BuilderDFS.hpp
+ * @see DdSpec.hpp
  */
 
 #pragma once
@@ -31,7 +38,12 @@ namespace sbdd2 {
 namespace tdzdd {
 
 /**
- * Get number of threads for parallel construction.
+ * @brief 並列構築用のスレッド数を取得する
+ *
+ * OpenMPが有効な場合はomp_get_max_threads()の値を返し、
+ * 無効な場合は1を返す。
+ *
+ * @return 使用可能なスレッド数
  */
 inline int get_num_threads() {
 #ifdef _OPENMP
@@ -42,19 +54,30 @@ inline int get_num_threads() {
 }
 
 /**
- * Build an UnreducedZDD from a TdZdd-compatible spec using OpenMP parallelism.
+ * @brief OpenMP並列でTdZdd互換SpecからUnreducedZDDを構築する
  *
- * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
- * @param mgr The DDManager to use
- * @param spec The spec instance
- * @return UnreducedZDD
+ * フェーズ1（トップダウン状態探索）をOpenMPで並列化する。
+ * 各スレッドがスレッドローカルな状態ストレージとハッシュテーブルを使用し、
+ * レベル処理後にグローバルにマージする。
+ * フェーズ2（ボトムアップノード確定）は正確性のため逐次実行する。
+ *
+ * スレッドIDとローカル列インデックスを (tid << 48) | localCol として
+ * エンコードしプレースホルダ参照に格納する。
+ *
+ * @tparam SPEC Spec型（TdZdd Specインターフェースを満たす必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return 構築されたUnreducedZDD
+ *
+ * @see build_zdd_mp
+ * @see build_unreduced_zdd
  */
 template<typename SPEC>
 UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
     int const datasize = spec.datasize();
     int const ARITY = SPEC::ARITY;
 
-    // Get root
+    // ルート状態を取得
     std::vector<char> rootState(datasize > 0 ? datasize : 1);
     int rootLevel = spec.get_root(rootState.data());
 
@@ -65,17 +88,17 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
         return UnreducedZDD::single(mgr);
     }
 
-    // Ensure variables exist
+    // 変数の存在を確保
     while (static_cast<int>(mgr.var_count()) < rootLevel) {
         mgr.new_var();
     }
 
-    // Data structures for each level
+    // 各レベル用のデータ構造
     std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
     std::vector<std::vector<std::array<Arc, 2>>> nodeChildren(rootLevel + 1);
     std::vector<std::vector<Arc>> nodeArcs(rootLevel + 1);
 
-    // Phase 1: Top-down state exploration
+    // フェーズ1：トップダウン状態探索
     nodeStates[rootLevel].push_back(rootState);
 
     for (int level = rootLevel; level >= 1; --level) {
@@ -85,24 +108,24 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
         nodeChildren[level].resize(numNodes);
         nodeArcs[level].resize(numNodes);
 
-        // Create placeholder nodes for this level
-        // TdZdd level L → SAPPOROBDD2 level L (same semantics: higher level = closer to root)
+        // このレベルのプレースホルダノードを作成
+        // TdZddレベルL → SAPPOROBDD2レベルL（同一セマンティクス：高レベル = ルートに近い）
         bddvar var = mgr.var_of_lev(level);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_zdd(var);
             nodeArcs[level][col] = Arc::node(placeholder_idx, false);
         }
 
-        // Thread-local storage for next level nodes
+        // 次レベルノード用のスレッドローカルストレージ
         int numThreads = get_num_threads();
         std::vector<std::vector<std::vector<char>>> threadLocalStates(numThreads);
         std::vector<std::unordered_map<std::size_t, std::vector<std::size_t>>> threadLocalHash(numThreads);
 
-        // Global hash for final merging
+        // 最終マージ用のグローバルハッシュ
         std::unordered_map<std::size_t, std::vector<std::size_t>> globalHash;
         std::mutex globalMutex;
 
-        // Process children in parallel
+        // 子ノードを並列処理
         #ifdef _OPENMP
         #pragma omp parallel
         #endif
@@ -118,7 +141,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
             #endif
             for (std::size_t col = 0; col < numNodes; ++col) {
                 for (int b = 0; b < ARITY; ++b) {
-                    // Copy state for child computation
+                    // 子計算用に状態をコピー
                     std::vector<char> childState(datasize > 0 ? datasize : 1);
                     if (datasize > 0) {
                         spec.get_copy(childState.data(), nodeStates[level][col].data());
@@ -135,11 +158,11 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
 
                         std::size_t hashCode = spec.hash_code(childState.data(), childLevel);
 
-                        // Look for existing node in thread-local storage first
+                        // まずスレッドローカルストレージで既存ノードを検索
                         bool found = false;
                         std::size_t childCol = 0;
 
-                        // Check thread-local hash
+                        // スレッドローカルハッシュを確認
                         auto& localHash = threadLocalHash[tid];
                         auto it = localHash.find(hashCode);
                         if (it != localHash.end()) {
@@ -147,7 +170,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
                                 if (spec.equal_to(childState.data(),
                                                   threadLocalStates[tid][existingIdx].data(),
                                                   childLevel)) {
-                                    // Found in thread-local
+                                    // スレッドローカルで発見
                                     childCol = existingIdx;
                                     found = true;
                                     break;
@@ -156,32 +179,32 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
                         }
 
                         if (!found) {
-                            // Add to thread-local storage
+                            // スレッドローカルストレージに追加
                             childCol = threadLocalStates[tid].size();
                             threadLocalStates[tid].push_back(childState);
                             localHash[hashCode].push_back(childCol);
                         }
 
-                        // Store placeholder reference (will be resolved later)
-                        // Use a special encoding: (tid << 48) | childCol
+                        // プレースホルダ参照を格納（後で解決）
+                        // 特殊エンコーディング：(tid << 48) | childCol
                         std::uint64_t encodedRef = (static_cast<std::uint64_t>(tid) << 48) | childCol;
                         nodeChildren[level][col][b] = Arc::placeholder(childLevel, encodedRef);
                     }
                 }
 
-                // Destruct the state for this node
+                // このノードの状態を破棄
                 if (datasize > 0) {
                     spec.destruct(nodeStates[level][col].data());
                 }
             }
         }
 
-        // Merge thread-local results into global state for next level
+        // スレッドローカル結果を次レベルのグローバル状態にマージ
         if (level > 1) {
             int nextLevel = level - 1;
             std::vector<std::pair<int, std::size_t>> threadColMapping;  // (tid, localCol) -> globalCol
 
-            // First pass: merge all unique states
+            // 第1パス：全一意状態をマージ
             for (int tid = 0; tid < numThreads; ++tid) {
                 for (std::size_t localCol = 0; localCol < threadLocalStates[tid].size(); ++localCol) {
                     auto& state = threadLocalStates[tid][localCol];
@@ -213,7 +236,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
                 }
             }
 
-            // Build mapping table: (tid, localCol) -> globalCol
+            // マッピングテーブルを構築：(tid, localCol) -> globalCol
             std::vector<std::vector<std::size_t>> colMapping(numThreads);
             std::size_t mappingIdx = 0;
             for (int tid = 0; tid < numThreads; ++tid) {
@@ -223,7 +246,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
                 }
             }
 
-            // Update placeholder references with global column indices
+            // プレースホルダ参照をグローバル列インデックスで更新
             for (std::size_t col = 0; col < numNodes; ++col) {
                 for (int b = 0; b < ARITY; ++b) {
                     Arc& arc = nodeChildren[level][col][b];
@@ -239,13 +262,13 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
             }
         }
 
-        // Clear state storage for processed level
+        // 処理済みレベルの状態記憶域をクリア
         nodeStates[level].clear();
         nodeStates[level].shrink_to_fit();
         spec.destructLevel(level);
     }
 
-    // Phase 2: Bottom-up node finalization (sequential for correctness)
+    // フェーズ2：ボトムアップノード確定（正確性のため逐次実行）
     for (int level = 1; level <= rootLevel; ++level) {
         std::size_t numNodes = nodeArcs[level].size();
 
@@ -253,7 +276,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
             Arc arc0 = nodeChildren[level][col][0];
             Arc arc1 = nodeChildren[level][col][1];
 
-            // Resolve placeholder arcs to actual arcs
+            // プレースホルダArcを実際のArcに解決
             if (arc0.is_placeholder()) {
                 int childLevel = arc0.placeholder_level();
                 std::size_t childCol = arc0.placeholder_col();
@@ -265,7 +288,7 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
                 arc1 = nodeArcs[childLevel][childCol];
             }
 
-            // Finalize the node
+            // ノードを確定
             bddindex placeholder_idx = nodeArcs[level][col].index();
             Arc finalArc = mgr.finalize_node_zdd(placeholder_idx, arc0, arc1, false);
             nodeArcs[level][col] = finalArc;
@@ -281,12 +304,17 @@ UnreducedZDD build_unreduced_zdd_mp(DDManager& mgr, SPEC& spec) {
 }
 
 /**
- * Build a reduced ZDD from a TdZdd-compatible spec using OpenMP parallelism.
+ * @brief OpenMP並列でTdZdd互換SpecからリダクションされたZDDを構築する
  *
- * @tparam SPEC The spec type (must satisfy TdZdd spec interface)
- * @param mgr The DDManager to use
- * @param spec The spec instance
- * @return ZDD (reduced)
+ * 内部でbuild_unreduced_zdd_mpを呼び出した後、reduce()を適用する。
+ *
+ * @tparam SPEC Spec型（TdZdd Specインターフェースを満たす必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return リダクションされたZDD
+ *
+ * @see build_unreduced_zdd_mp
+ * @see build_zdd
  */
 template<typename SPEC>
 ZDD build_zdd_mp(DDManager& mgr, SPEC& spec) {
@@ -295,7 +323,18 @@ ZDD build_zdd_mp(DDManager& mgr, SPEC& spec) {
 }
 
 /**
- * Build an UnreducedBDD from a TdZdd-compatible spec using OpenMP parallelism.
+ * @brief OpenMP並列でTdZdd互換SpecからUnreducedBDDを構築する
+ *
+ * ZDD版と同様にスレッドローカルストレージとグローバルマージを用いて
+ * 並列に状態探索を行う。BDD用のプレースホルダとファイナライズを使用する。
+ *
+ * @tparam SPEC Spec型（TdZdd Specインターフェースを満たす必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return 構築されたUnreducedBDD
+ *
+ * @see build_bdd_mp
+ * @see build_unreduced_bdd
  */
 template<typename SPEC>
 UnreducedBDD build_unreduced_bdd_mp(DDManager& mgr, SPEC& spec) {
@@ -329,7 +368,7 @@ UnreducedBDD build_unreduced_bdd_mp(DDManager& mgr, SPEC& spec) {
         nodeChildren[level].resize(numNodes);
         nodeArcs[level].resize(numNodes);
 
-        // Map: TdZdd level L → variable (rootLevel - L + 1)
+        // 対応：TdZddレベルL → 変数 (rootLevel - L + 1)
         bddvar var = static_cast<bddvar>(rootLevel - level + 1);
         for (std::size_t col = 0; col < numNodes; ++col) {
             bddindex placeholder_idx = mgr.create_placeholder_bdd(var);
@@ -504,7 +543,17 @@ UnreducedBDD build_unreduced_bdd_mp(DDManager& mgr, SPEC& spec) {
 }
 
 /**
- * Build a reduced BDD from a TdZdd-compatible spec using OpenMP parallelism.
+ * @brief OpenMP並列でTdZdd互換SpecからリダクションされたBDDを構築する
+ *
+ * 内部でbuild_unreduced_bdd_mpを呼び出した後、reduce()を適用する。
+ *
+ * @tparam SPEC Spec型（TdZdd Specインターフェースを満たす必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return リダクションされたBDD
+ *
+ * @see build_unreduced_bdd_mp
+ * @see build_bdd
  */
 template<typename SPEC>
 BDD build_bdd_mp(DDManager& mgr, SPEC& spec) {
@@ -513,23 +562,31 @@ BDD build_bdd_mp(DDManager& mgr, SPEC& spec) {
 }
 
 /**
- * Build an MVZDD from a VarArity spec using OpenMP parallelism.
+ * @brief OpenMP並列で実行時可変ARITYのVarArity SpecからMVZDDを構築する
  *
- * @tparam SPEC The spec type (must have getArity() method)
- * @param mgr The DDManager to use
- * @param spec The spec instance
- * @return MVZDD
+ * スレッドローカルストレージとグローバルマージを用いて
+ * 並列にフェーズ1の状態探索を行い、フェーズ2でボトムアップに
+ * ITEを使用してMVZDDノードを構築する。
+ *
+ * @tparam SPEC Spec型（getArity()メソッドを持つ必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return 構築されたMVZDD
+ *
+ * @see build_mvzdd_va
+ * @see build_mvbdd_va_mp
+ * @see VarArityDdSpec
  */
 template<typename SPEC>
 MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
     int const datasize = spec.datasize();
     int const ARITY = spec.getArity();
 
-    // Get root
+    // ルート状態を取得
     std::vector<char> rootState(datasize > 0 ? datasize : 1);
     int rootLevel = spec.get_root(rootState.data());
 
-    // Create MVZDD with k = ARITY
+    // k = ARITYでMVZDDを作成
     MVZDD base_mvzdd = MVZDD::empty(mgr, ARITY);
 
     if (rootLevel == 0) {
@@ -539,23 +596,23 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
         return MVZDD::single(mgr, ARITY);
     }
 
-    // Pre-create MVDD variables for all levels
+    // 全レベル分のMVDD変数を事前作成
     while (static_cast<int>(base_mvzdd.mvdd_var_count()) < rootLevel) {
         base_mvzdd.new_var();
     }
 
-    // Terminal MVZDDs
+    // 終端MVZDD
     MVZDD empty_mvzdd = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
                                ZDD::empty(mgr));
     MVZDD base_term = MVZDD(base_mvzdd.manager(), base_mvzdd.var_table(),
                              ZDD::single(mgr));
 
-    // Data structures
+    // データ構造
     std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
     std::vector<std::vector<std::vector<std::pair<int, std::size_t>>>> childRefs(rootLevel + 1);
     std::vector<std::vector<MVZDD>> nodeMVZDDs(rootLevel + 1);
 
-    // Phase 1: Top-down state exploration
+    // フェーズ1：トップダウン状態探索
     nodeStates[rootLevel].push_back(rootState);
 
     for (int level = rootLevel; level >= 1; --level) {
@@ -564,12 +621,12 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
 
         childRefs[level].resize(numNodes);
 
-        // Thread-local storage for next level nodes
+        // 次レベルノード用のスレッドローカルストレージ
         int numThreads = get_num_threads();
         std::vector<std::vector<std::vector<char>>> threadLocalStates(numThreads);
         std::vector<std::unordered_map<std::size_t, std::vector<std::size_t>>> threadLocalHash(numThreads);
 
-        // Process children in parallel
+        // 子ノードを並列処理
         #ifdef _OPENMP
         #pragma omp parallel
         #endif
@@ -624,7 +681,7 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
                             localHash[hashCode].push_back(childCol);
                         }
 
-                        // Encode (tid, localCol) as a placeholder reference
+                        // (tid, localCol)をプレースホルダ参照としてエンコード
                         std::uint64_t encodedRef = (static_cast<std::uint64_t>(tid) << 48) | childCol;
                         childRefs[level][col][b] = {childLevel, encodedRef};
                     }
@@ -636,7 +693,7 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
             }
         }
 
-        // Merge thread-local results into global state for next level
+        // スレッドローカル結果を次レベルのグローバル状態にマージ
         if (level > 1) {
             int nextLevel = level - 1;
             std::unordered_map<std::size_t, std::vector<std::size_t>> globalHash;
@@ -673,7 +730,7 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
                 }
             }
 
-            // Build mapping table
+            // マッピングテーブルを構築
             std::vector<std::vector<std::size_t>> colMapping(numThreads);
             std::size_t mappingIdx = 0;
             for (int tid = 0; tid < numThreads; ++tid) {
@@ -683,7 +740,7 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
                 }
             }
 
-            // Update placeholder references with global column indices
+            // プレースホルダ参照をグローバル列インデックスで更新
             for (std::size_t col = 0; col < numNodes; ++col) {
                 for (int b = 0; b < ARITY; ++b) {
                     auto& ref = childRefs[level][col][b];
@@ -702,7 +759,7 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
         spec.destructLevel(level);
     }
 
-    // Phase 2: Bottom-up MVZDD construction
+    // フェーズ2：ボトムアップMVZDD構築
     for (int level = 1; level <= rootLevel; ++level) {
         std::size_t numNodes = childRefs[level].size();
         nodeMVZDDs[level].resize(numNodes);
@@ -735,23 +792,30 @@ MVZDD build_mvzdd_va_mp(DDManager& mgr, SPEC& spec) {
 }
 
 /**
- * Build an MVBDD from a VarArity spec using OpenMP parallelism.
+ * @brief OpenMP並列で実行時可変ARITYのVarArity SpecからMVBDDを構築する
  *
- * @tparam SPEC The spec type (must have getArity() method)
- * @param mgr The DDManager to use
- * @param spec The spec instance
- * @return MVBDD
+ * MVZDD版と同様にスレッドローカルストレージとグローバルマージを用いて
+ * 並列に状態探索を行い、ボトムアップにMVBDDノードを構築する。
+ *
+ * @tparam SPEC Spec型（getArity()メソッドを持つ必要がある）
+ * @param mgr 使用するDDManager
+ * @param spec Specインスタンス
+ * @return 構築されたMVBDD
+ *
+ * @see build_mvbdd_va
+ * @see build_mvzdd_va_mp
+ * @see VarArityDdSpec
  */
 template<typename SPEC>
 MVBDD build_mvbdd_va_mp(DDManager& mgr, SPEC& spec) {
     int const datasize = spec.datasize();
     int const ARITY = spec.getArity();
 
-    // Get root
+    // ルート状態を取得
     std::vector<char> rootState(datasize > 0 ? datasize : 1);
     int rootLevel = spec.get_root(rootState.data());
 
-    // Create MVBDD with k = ARITY
+    // k = ARITYでMVBDDを作成
     MVBDD base_mvbdd = MVBDD::zero(mgr, ARITY);
 
     if (rootLevel == 0) {
@@ -761,23 +825,23 @@ MVBDD build_mvbdd_va_mp(DDManager& mgr, SPEC& spec) {
         return MVBDD::one(mgr, ARITY);
     }
 
-    // Pre-create MVDD variables for all levels
+    // 全レベル分のMVDD変数を事前作成
     while (static_cast<int>(base_mvbdd.mvdd_var_count()) < rootLevel) {
         base_mvbdd.new_var();
     }
 
-    // Terminal MVBDDs
+    // 終端MVBDD
     MVBDD zero_mvbdd = MVBDD(base_mvbdd.manager(), base_mvbdd.var_table(),
                               BDD::zero(mgr));
     MVBDD one_mvbdd = MVBDD(base_mvbdd.manager(), base_mvbdd.var_table(),
                              BDD::one(mgr));
 
-    // Data structures
+    // データ構造
     std::vector<std::vector<std::vector<char>>> nodeStates(rootLevel + 1);
     std::vector<std::vector<std::vector<std::pair<int, std::size_t>>>> childRefs(rootLevel + 1);
     std::vector<std::vector<MVBDD>> nodeMVBDDs(rootLevel + 1);
 
-    // Phase 1: Top-down state exploration
+    // フェーズ1：トップダウン状態探索
     nodeStates[rootLevel].push_back(rootState);
 
     for (int level = rootLevel; level >= 1; --level) {
@@ -918,7 +982,7 @@ MVBDD build_mvbdd_va_mp(DDManager& mgr, SPEC& spec) {
         spec.destructLevel(level);
     }
 
-    // Phase 2: Bottom-up MVBDD construction
+    // フェーズ2：ボトムアップMVBDD構築
     for (int level = 1; level <= rootLevel; ++level) {
         std::size_t numNodes = childRefs[level].size();
         nodeMVBDDs[level].resize(numNodes);

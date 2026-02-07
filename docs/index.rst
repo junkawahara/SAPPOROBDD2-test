@@ -10,8 +10,14 @@ SAPPOROBDD 2.0は、高性能なBDD（二分決定図）およびZDD（ゼロ抑
    introduction
    quickstart
    tutorial
+   migration
+   guide/index
+   application/index
+   examples/index
    api/index
    advanced
+   faq
+   changelog
 
 特徴
 ----

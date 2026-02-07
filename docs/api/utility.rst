@@ -1,6 +1,12 @@
 ユーティリティクラス
 ====================
 
+.. seealso::
+
+   GBaseの詳細ガイドは :doc:`../guide/gbase_guide` を参照してください。
+   グラフ問題への応用は :doc:`../application/graph_problems` を参照してください。
+   I/Oの詳細は :doc:`../guide/io_guide` を参照してください。
+
 GBase
 -----
 

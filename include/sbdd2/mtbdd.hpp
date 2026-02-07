@@ -46,6 +46,8 @@ template<typename T> class MTZDD;
  * // 演算
  * MTBDD<double> result = x1 + c;
  * @endcode
+ *
+ * @see MTZDD, DDManager, BDD
  */
 template<typename T>
 class MTBDD : public MTDDBase<T> {
@@ -93,6 +95,14 @@ public:
      * @param mgr DDマネージャー
      * @param value 終端値
      * @return 単一の終端値を持つMTBDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * MTBDD<double> pi = MTBDD<double>::constant(mgr, 3.14);
+     * MTBDD<int> zero = MTBDD<int>::constant(mgr, 0);
+     * @endcode
+     *
+     * @see ite(), from_bdd(), MTZDD::constant()
      */
     static MTBDD constant(DDManager& mgr, const T& value) {
         MTBDDTerminalTable<T>& table = mgr.template get_or_create_terminal_table<T>();
@@ -111,6 +121,16 @@ public:
      * @param high v=1の場合の子MTBDD
      * @param low v=0の場合の子MTBDD
      * @return 作成されたMTBDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * auto hi = MTBDD<double>::constant(mgr, 1.0);
+     * auto lo = MTBDD<double>::constant(mgr, 0.0);
+     * auto x1 = MTBDD<double>::ite(mgr, 1, hi, lo);
+     * @endcode
+     *
+     * @see constant(), MTZDD::ite()
      */
     static MTBDD ite(DDManager& mgr, bddvar v, const MTBDD& high, const MTBDD& low) {
         if (v == 0 || v > mgr.var_count()) {
@@ -132,6 +152,16 @@ public:
      * @param zero_val BDDの終端0に対応する値（デフォルト: T{}）
      * @param one_val BDDの終端1に対応する値（デフォルト: T{1}）
      * @return 変換されたMTBDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * BDD x1 = mgr.var_bdd(1);
+     * // BDDをdouble型のMTBDDに変換（0->0.0, 1->1.0）
+     * auto mt = MTBDD<double>::from_bdd(x1);
+     * @endcode
+     *
+     * @see MTZDD::from_zdd(), BDD
      */
     static MTBDD from_bdd(const BDD& bdd,
                           const T& zero_val = T{},
@@ -200,11 +230,22 @@ public:
     /**
      * @brief 汎用apply演算
      *
+     * 2つのMTBDDに対して終端値同士で二項演算を適用します。
+     *
      * @tparam BinaryOp 二項演算関数型
      * @param other 第2オペランド
      * @param op 二項演算（(T, T) -> T）
      * @param cache_op キャッシュ用の操作タイプ（省略可）
      * @return 演算結果
+     *
+     * @code{.cpp}
+     * // カスタム演算: 2つのMTBDDの終端値の平均
+     * auto avg = a.apply(b, [](double x, double y) {
+     *     return (x + y) / 2.0;
+     * });
+     * @endcode
+     *
+     * @see MTZDD::apply()
      */
     template<typename BinaryOp>
     MTBDD apply(const MTBDD& other, BinaryOp op, CacheOp cache_op = CacheOp::CUSTOM) const {
@@ -228,9 +269,13 @@ public:
     /**
      * @brief ITE演算 (if this then then_case else else_case)
      *
+     * thisの終端値がゼロ（T{}）なら else_case、非ゼロなら then_case を選択します。
+     *
      * @param then_case thisが「真」（非ゼロ）の場合の値
      * @param else_case thisが「偽」（ゼロ）の場合の値
      * @return ITE結果
+     *
+     * @see MTZDD::ite()
      */
     MTBDD ite(const MTBDD& then_case, const MTBDD& else_case) const {
         if (!is_valid() || !then_case.is_valid() || !else_case.is_valid()) {
@@ -255,6 +300,14 @@ public:
      *
      * @param assignment 変数番号からbool値へのマッピング（インデックス0は未使用）
      * @return 評価結果の終端値
+     *
+     * @code{.cpp}
+     * // 変数1=true, 変数2=false での評価
+     * std::vector<bool> assign = {false, true, false};  // index 0は未使用
+     * double val = mt.evaluate(assign);
+     * @endcode
+     *
+     * @see MTZDD::evaluate()
      */
     T evaluate(const std::vector<bool>& assignment) const {
         if (!is_valid()) {
@@ -442,7 +495,8 @@ private:
     }
 };
 
-/// ADDはMTBDDのエイリアス
+/// ADDはMTBDDのエイリアス（Algebraic Decision Diagram）
+/// @see MTBDD
 template<typename T>
 using ADD = MTBDD<T>;
 

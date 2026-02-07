@@ -1,5 +1,12 @@
-// SAPPOROBDD 2.0 - Import/Export functions
-// MIT License
+/**
+ * @file io.hpp
+ * @brief SAPPOROBDD 2.0 - BDD/ZDDの入出力関数
+ * @author SAPPOROBDD Team
+ * @copyright MIT License
+ *
+ * BDD/ZDDの各種フォーマットでのインポート・エクスポート機能を提供する。
+ * 対応フォーマット: バイナリ、テキスト、DOT、Knuth、Graphillion、lib_bdd、SVG
+ */
 
 #ifndef SBDD2_IO_HPP
 #define SBDD2_IO_HPP
@@ -13,264 +20,399 @@
 
 namespace sbdd2 {
 
-// File format types
+/**
+ * @brief DDファイルフォーマットの種類
+ *
+ * インポート・エクスポート時に使用するファイル形式を指定する列挙型。
+ */
 enum class DDFileFormat {
-    AUTO,       // Auto-detect from extension
-    BINARY,     // Binary format (compact)
-    TEXT,       // Text format (human-readable)
-    DOT,        // GraphViz DOT format
-    KNUTH       // Knuth's format
+    AUTO,       ///< 拡張子から自動検出
+    BINARY,     ///< バイナリ形式（コンパクト）
+    TEXT,       ///< テキスト形式（可読性あり）
+    DOT,        ///< GraphViz DOT形式（可視化用）
+    KNUTH       ///< Knuth形式
 };
 
-// Export options
+/**
+ * @brief エクスポートオプション
+ *
+ * BDD/ZDDをファイルに書き出す際の設定を格納する構造体。
+ */
 struct ExportOptions {
-    DDFileFormat format = DDFileFormat::BINARY;
-    bool include_header = true;
-    bool compress = false;
-    int precision = 6;  // For floating point in text format
+    DDFileFormat format = DDFileFormat::BINARY;  ///< 出力フォーマット
+    bool include_header = true;                  ///< ヘッダを含めるかどうか
+    bool compress = false;                       ///< 圧縮を有効にするかどうか
+    int precision = 6;                           ///< テキスト形式での浮動小数点精度
 };
 
-// Import options
+/**
+ * @brief インポートオプション
+ *
+ * BDD/ZDDをファイルから読み込む際の設定を格納する構造体。
+ */
 struct ImportOptions {
-    DDFileFormat format = DDFileFormat::AUTO;
+    DDFileFormat format = DDFileFormat::AUTO;  ///< 入力フォーマット（AUTOで自動検出）
 };
 
 // ============== BDD Import/Export ==============
 
-// Export BDD to file
+/**
+ * @brief BDDをファイルにエクスポートする
+ * @param bdd エクスポートするBDD
+ * @param filename 出力ファイルパス
+ * @param options エクスポートオプション
+ * @return エクスポート成功時にtrue、失敗時にfalse
+ * @see import_bdd, ExportOptions
+ */
 bool export_bdd(const BDD& bdd, const std::string& filename,
                 const ExportOptions& options = ExportOptions());
+
+/**
+ * @brief BDDを出力ストリームにエクスポートする
+ * @param bdd エクスポートするBDD
+ * @param os 出力ストリーム
+ * @param options エクスポートオプション
+ * @return エクスポート成功時にtrue、失敗時にfalse
+ * @see import_bdd, ExportOptions
+ */
 bool export_bdd(const BDD& bdd, std::ostream& os,
                 const ExportOptions& options = ExportOptions());
 
-// Import BDD from file
+/**
+ * @brief ファイルからBDDをインポートする
+ * @param mgr DDマネージャー
+ * @param filename 入力ファイルパス
+ * @param options インポートオプション
+ * @return インポートされたBDD
+ * @see export_bdd, ImportOptions
+ */
 BDD import_bdd(DDManager& mgr, const std::string& filename,
                const ImportOptions& options = ImportOptions());
+
+/**
+ * @brief 入力ストリームからBDDをインポートする
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @param options インポートオプション
+ * @return インポートされたBDD
+ * @see export_bdd, ImportOptions
+ */
 BDD import_bdd(DDManager& mgr, std::istream& is,
                const ImportOptions& options = ImportOptions());
 
 // ============== ZDD Import/Export ==============
 
-// Export ZDD to file
+/**
+ * @brief ZDDをファイルにエクスポートする
+ * @param zdd エクスポートするZDD
+ * @param filename 出力ファイルパス
+ * @param options エクスポートオプション
+ * @return エクスポート成功時にtrue、失敗時にfalse
+ * @see import_zdd, ExportOptions
+ */
 bool export_zdd(const ZDD& zdd, const std::string& filename,
                 const ExportOptions& options = ExportOptions());
+
+/**
+ * @brief ZDDを出力ストリームにエクスポートする
+ * @param zdd エクスポートするZDD
+ * @param os 出力ストリーム
+ * @param options エクスポートオプション
+ * @return エクスポート成功時にtrue、失敗時にfalse
+ * @see import_zdd, ExportOptions
+ */
 bool export_zdd(const ZDD& zdd, std::ostream& os,
                 const ExportOptions& options = ExportOptions());
 
-// Import ZDD from file
+/**
+ * @brief ファイルからZDDをインポートする
+ * @param mgr DDマネージャー
+ * @param filename 入力ファイルパス
+ * @param options インポートオプション
+ * @return インポートされたZDD
+ * @see export_zdd, ImportOptions
+ */
 ZDD import_zdd(DDManager& mgr, const std::string& filename,
                const ImportOptions& options = ImportOptions());
+
+/**
+ * @brief 入力ストリームからZDDをインポートする
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @param options インポートオプション
+ * @return インポートされたZDD
+ * @see export_zdd, ImportOptions
+ */
 ZDD import_zdd(DDManager& mgr, std::istream& is,
                const ImportOptions& options = ImportOptions());
 
 // ============== DOT Export ==============
 
-// Export to DOT format for visualization
+/**
+ * @brief BDDをGraphViz DOT形式の文字列に変換する
+ * @param bdd 変換するBDD
+ * @param name DOTグラフの名前
+ * @return DOT形式の文字列
+ * @see export_bdd
+ */
 std::string to_dot(const BDD& bdd, const std::string& name = "bdd");
+
+/**
+ * @brief ZDDをGraphViz DOT形式の文字列に変換する
+ * @param zdd 変換するZDD
+ * @param name DOTグラフの名前
+ * @return DOT形式の文字列
+ * @see export_zdd
+ */
 std::string to_dot(const ZDD& zdd, const std::string& name = "zdd");
 
 // ============== Binary Format ==============
-// Format specification based on:
-// https://raw.githubusercontent.com/junkawahara/dd_documents/refs/heads/main/formats/bdd_binary_format.md
 
-/*
-Binary format structure:
-- Header (16 bytes):
-  - Magic: "SBDD" (4 bytes)
-  - Version: uint16_t (2 bytes)
-  - Type: uint8_t (1 byte: 0=BDD, 1=ZDD)
-  - Flags: uint8_t (1 byte)
-  - Node count: uint64_t (8 bytes)
-- Node table:
-  - For each node:
-    - Variable: uint32_t (4 bytes)
-    - Low: uint64_t (8 bytes, arc format)
-    - High: uint64_t (8 bytes, arc format)
-- Root arc: uint64_t (8 bytes)
-*/
+/**
+ * @brief バイナリ形式の仕様
+ *
+ * フォーマット仕様:
+ * https://raw.githubusercontent.com/junkawahara/dd_documents/refs/heads/main/formats/bdd_binary_format.md
+ *
+ * バイナリ形式の構造:
+ * - ヘッダ (16バイト):
+ *   - マジックナンバー: "SBDD" (4バイト)
+ *   - バージョン: uint16_t (2バイト)
+ *   - 種別: uint8_t (1バイト: 0=BDD, 1=ZDD)
+ *   - フラグ: uint8_t (1バイト)
+ *   - ノード数: uint64_t (8バイト)
+ * - ノードテーブル:
+ *   - 各ノードについて:
+ *     - 変数番号: uint32_t (4バイト)
+ *     - 0枝: uint64_t (8バイト, アーク形式)
+ *     - 1枝: uint64_t (8バイト, アーク形式)
+ * - ルートアーク: uint64_t (8バイト)
+ */
 
-// Magic number
-constexpr char DD_MAGIC[4] = {'S', 'B', 'D', 'D'};
-constexpr std::uint16_t DD_VERSION = 1;
+constexpr char DD_MAGIC[4] = {'S', 'B', 'D', 'D'};  ///< マジックナンバー
+constexpr std::uint16_t DD_VERSION = 1;               ///< フォーマットバージョン
 
-// Type codes
-constexpr std::uint8_t DD_TYPE_BDD = 0;
-constexpr std::uint8_t DD_TYPE_ZDD = 1;
+constexpr std::uint8_t DD_TYPE_BDD = 0;  ///< BDD種別コード
+constexpr std::uint8_t DD_TYPE_ZDD = 1;  ///< ZDD種別コード
 
 // ============== Text Format ==============
 
-/*
-Text format structure:
-Line 1: "BDD" or "ZDD"
-Line 2: Number of nodes
-Line 3+: Node definitions (one per line)
-  Format: node_id var_number low_id high_id
-  - Terminal 0: "T0"
-  - Terminal 1: "T1"
-  - Negated arc: prefix with "~"
-Last line: Root reference
-*/
+/**
+ * @brief テキスト形式の仕様
+ *
+ * テキスト形式の構造:
+ * - 1行目: "BDD" または "ZDD"
+ * - 2行目: ノード数
+ * - 3行目以降: ノード定義（1行に1ノード）
+ *   - 形式: ノードID 変数番号 0枝ID 1枝ID
+ *   - 終端0: "T0"
+ *   - 終端1: "T1"
+ *   - 否定枝: "~" プレフィックス付き
+ * - 最終行: ルート参照
+ */
 
 // ============== Utility Functions ==============
 
-// Detect format from filename extension
+/**
+ * @brief ファイル名の拡張子からフォーマットを自動検出する
+ * @param filename ファイル名
+ * @return 検出されたフォーマット種別
+ * @see DDFileFormat
+ */
 DDFileFormat detect_format(const std::string& filename);
 
-// Validation
+/**
+ * @brief BDDの整合性を検証する
+ * @param bdd 検証するBDD
+ * @return 整合性が正しければtrue、不正な場合はfalse
+ * @see validate_zdd
+ */
 bool validate_bdd(const BDD& bdd);
+
+/**
+ * @brief ZDDの整合性を検証する
+ * @param zdd 検証するZDD
+ * @return 整合性が正しければtrue、不正な場合はfalse
+ * @see validate_bdd
+ */
 bool validate_zdd(const ZDD& zdd);
 
 // ============== Graphillion Format ==============
-// Compatible with Graphillion library format
+// Graphillionライブラリとの互換フォーマット
 
 /**
- * @brief Import ZDD from Graphillion format
+ * @brief Graphillion形式のストリームからZDDをインポートする
  * @param mgr DDマネージャー
  * @param is 入力ストリーム
  * @param root_level ルートレベル（-1で自動検出）
  * @return インポートされたZDD
+ * @see export_zdd_as_graphillion
  */
 ZDD import_zdd_as_graphillion(DDManager& mgr, std::istream& is, int root_level = -1);
 
 /**
- * @brief Import ZDD from Graphillion format file
+ * @brief Graphillion形式のファイルからZDDをインポートする
  * @param mgr DDマネージャー
- * @param filename ファイル名
- * @param root_level ルートレベル
+ * @param filename 入力ファイルパス
+ * @param root_level ルートレベル（-1で自動検出）
  * @return インポートされたZDD
+ * @see export_zdd_as_graphillion
  */
 ZDD import_zdd_as_graphillion(DDManager& mgr, const std::string& filename, int root_level = -1);
 
 /**
- * @brief Export ZDD to Graphillion format
+ * @brief ZDDをGraphillion形式でストリームにエクスポートする
  * @param zdd エクスポートするZDD
  * @param os 出力ストリーム
- * @param root_level ルートレベル（-1で自動）
+ * @param root_level ルートレベル（-1で自動設定）
+ * @see import_zdd_as_graphillion
  */
 void export_zdd_as_graphillion(const ZDD& zdd, std::ostream& os, int root_level = -1);
 
 /**
- * @brief Export ZDD to Graphillion format file
+ * @brief ZDDをGraphillion形式でファイルにエクスポートする
  * @param zdd エクスポートするZDD
- * @param filename ファイル名
- * @param root_level ルートレベル
+ * @param filename 出力ファイルパス
+ * @param root_level ルートレベル（-1で自動設定）
+ * @see import_zdd_as_graphillion
  */
 void export_zdd_as_graphillion(const ZDD& zdd, const std::string& filename, int root_level = -1);
 
 // ============== Knuth Format ==============
-// Compatible with Knuth's BDD format
+// Knuth形式のBDD/ZDDフォーマットとの互換
 
 /**
- * @brief Import ZDD from Knuth format
+ * @brief Knuth形式のストリームからZDDをインポートする
  * @param mgr DDマネージャー
  * @param is 入力ストリーム
- * @param is_hex 16進数形式かどうか
- * @param root_level ルートレベル
+ * @param is_hex trueの場合、16進数形式として解釈する
+ * @param root_level ルートレベル（-1で自動検出）
  * @return インポートされたZDD
+ * @see export_zdd_as_knuth
  */
 ZDD import_zdd_as_knuth(DDManager& mgr, std::istream& is, bool is_hex = false, int root_level = -1);
 
 /**
- * @brief Import ZDD from Knuth format file
+ * @brief Knuth形式のファイルからZDDをインポートする
  * @param mgr DDマネージャー
- * @param filename ファイル名
- * @param is_hex 16進数形式かどうか
- * @param root_level ルートレベル
+ * @param filename 入力ファイルパス
+ * @param is_hex trueの場合、16進数形式として解釈する
+ * @param root_level ルートレベル（-1で自動検出）
  * @return インポートされたZDD
+ * @see export_zdd_as_knuth
  */
 ZDD import_zdd_as_knuth(DDManager& mgr, const std::string& filename, bool is_hex = false, int root_level = -1);
 
 /**
- * @brief Export ZDD to Knuth format
+ * @brief ZDDをKnuth形式でストリームにエクスポートする
  * @param zdd エクスポートするZDD
  * @param os 出力ストリーム
- * @param is_hex 16進数形式で出力するか
+ * @param is_hex trueの場合、16進数形式で出力する
+ * @see import_zdd_as_knuth
  */
 void export_zdd_as_knuth(const ZDD& zdd, std::ostream& os, bool is_hex = false);
 
 /**
- * @brief Export ZDD to Knuth format file
+ * @brief ZDDをKnuth形式でファイルにエクスポートする
  * @param zdd エクスポートするZDD
- * @param filename ファイル名
- * @param is_hex 16進数形式で出力するか
+ * @param filename 出力ファイルパス
+ * @param is_hex trueの場合、16進数形式で出力する
+ * @see import_zdd_as_knuth
  */
 void export_zdd_as_knuth(const ZDD& zdd, const std::string& filename, bool is_hex = false);
 
 // ============== lib_bdd Format ==============
-// Compatible with Rust's lib-bdd library binary format
-// https://github.com/sybila/biodivine-lib-bdd
-//
-// Format: 10 bytes per node (little-endian)
-// - var_type (uint16_t): variable level (0xFFFF = terminal)
-// - ptr_type (uint32_t): low child pointer
-// - ptr_type (uint32_t): high child pointer
-// Index 0 = false terminal, Index 1 = true terminal
 
 /**
- * @brief Import BDD from lib_bdd format
- * @param mgr DDManager
- * @param is Input stream
- * @return Imported BDD
+ * @brief lib_bddバイナリ形式
+ *
+ * Rustのlib-bddライブラリ (https://github.com/sybila/biodivine-lib-bdd) との
+ * 互換バイナリ形式。
+ *
+ * 形式: 1ノードあたり10バイト（リトルエンディアン）
+ * - var_type (uint16_t): 変数レベル（0xFFFF = 終端）
+ * - ptr_type (uint32_t): 0枝の子ノードポインタ
+ * - ptr_type (uint32_t): 1枝の子ノードポインタ
+ * - インデックス0 = 偽終端、インデックス1 = 真終端
+ */
+
+/**
+ * @brief lib_bdd形式のストリームからBDDをインポートする
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @return インポートされたBDD
+ * @see export_bdd_as_libbdd
  */
 BDD import_bdd_as_libbdd(DDManager& mgr, std::istream& is);
 
 /**
- * @brief Import BDD from lib_bdd format file
- * @param mgr DDManager
- * @param filename File path
- * @return Imported BDD
+ * @brief lib_bdd形式のファイルからBDDをインポートする
+ * @param mgr DDマネージャー
+ * @param filename 入力ファイルパス
+ * @return インポートされたBDD
+ * @see export_bdd_as_libbdd
  */
 BDD import_bdd_as_libbdd(DDManager& mgr, const std::string& filename);
 
 /**
- * @brief Import ZDD from lib_bdd format
- * @param mgr DDManager
- * @param is Input stream
- * @return Imported ZDD
+ * @brief lib_bdd形式のストリームからZDDをインポートする
+ * @param mgr DDマネージャー
+ * @param is 入力ストリーム
+ * @return インポートされたZDD
+ * @see export_zdd_as_libbdd
  */
 ZDD import_zdd_as_libbdd(DDManager& mgr, std::istream& is);
 
 /**
- * @brief Import ZDD from lib_bdd format file
- * @param mgr DDManager
- * @param filename File path
- * @return Imported ZDD
+ * @brief lib_bdd形式のファイルからZDDをインポートする
+ * @param mgr DDマネージャー
+ * @param filename 入力ファイルパス
+ * @return インポートされたZDD
+ * @see export_zdd_as_libbdd
  */
 ZDD import_zdd_as_libbdd(DDManager& mgr, const std::string& filename);
 
 /**
- * @brief Export BDD to lib_bdd format
- * @param bdd BDD to export
- * @param os Output stream
+ * @brief BDDをlib_bdd形式でストリームにエクスポートする
+ * @param bdd エクスポートするBDD
+ * @param os 出力ストリーム
+ * @see import_bdd_as_libbdd
  */
 void export_bdd_as_libbdd(const BDD& bdd, std::ostream& os);
 
 /**
- * @brief Export BDD to lib_bdd format file
- * @param bdd BDD to export
- * @param filename File path
+ * @brief BDDをlib_bdd形式でファイルにエクスポートする
+ * @param bdd エクスポートするBDD
+ * @param filename 出力ファイルパス
+ * @see import_bdd_as_libbdd
  */
 void export_bdd_as_libbdd(const BDD& bdd, const std::string& filename);
 
 /**
- * @brief Export ZDD to lib_bdd format
- * @param zdd ZDD to export
- * @param os Output stream
+ * @brief ZDDをlib_bdd形式でストリームにエクスポートする
+ * @param zdd エクスポートするZDD
+ * @param os 出力ストリーム
+ * @see import_zdd_as_libbdd
  */
 void export_zdd_as_libbdd(const ZDD& zdd, std::ostream& os);
 
 /**
- * @brief Export ZDD to lib_bdd format file
- * @param zdd ZDD to export
- * @param filename File path
+ * @brief ZDDをlib_bdd形式でファイルにエクスポートする
+ * @param zdd エクスポートするZDD
+ * @param filename 出力ファイルパス
+ * @see import_zdd_as_libbdd
  */
 void export_zdd_as_libbdd(const ZDD& zdd, const std::string& filename);
 
 // ============== SVG Format ==============
-// Export ZDD as SVG visualization
 
 /**
  * @brief SVGエクスポートオプション
+ *
+ * ZDDをSVG画像として出力する際の描画設定を格納する構造体。
+ * ノードの色、サイズ、フォントなど、SVG出力の各種パラメータを制御する。
+ *
+ * @see export_zdd_as_svg
  */
 struct SvgExportOptions {
     int width = 800;                          ///< SVG幅
@@ -291,19 +433,21 @@ struct SvgExportOptions {
 };
 
 /**
- * @brief Export ZDD as SVG
+ * @brief ZDDをSVG形式でストリームにエクスポートする
  * @param zdd エクスポートするZDD
  * @param os 出力ストリーム
- * @param options SVGオプション
+ * @param options SVGエクスポートオプション
+ * @see SvgExportOptions
  */
 void export_zdd_as_svg(const ZDD& zdd, std::ostream& os,
                        const SvgExportOptions& options = SvgExportOptions());
 
 /**
- * @brief Export ZDD as SVG file
+ * @brief ZDDをSVG形式でファイルにエクスポートする
  * @param zdd エクスポートするZDD
- * @param filename ファイル名
- * @param options SVGオプション
+ * @param filename 出力ファイルパス
+ * @param options SVGエクスポートオプション
+ * @see SvgExportOptions
  */
 void export_zdd_as_svg(const ZDD& zdd, const std::string& filename,
                        const SvgExportOptions& options = SvgExportOptions());

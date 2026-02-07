@@ -28,8 +28,9 @@ class ZDD;
 /**
  * @brief 辞書順イテレータ
  *
- * ZDD内の集合を辞書順で列挙します。
- * O(1)のメモリオーバーヘッドで効率的に列挙できます。
+ * ZDD内の集合を辞書順で列挙する入力イテレータ。
+ * O(1)のメモリオーバーヘッドで効率的に列挙できる。
+ * 昇順・降順の両方に対応している。
  *
  * @code{.cpp}
  * ZDD zdd = ...;
@@ -38,14 +39,16 @@ class ZDD;
  *     // sを処理
  * }
  * @endcode
+ *
+ * @see WeightIterator, RandomIterator, ZDDIndexData
  */
 class DictIterator {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = std::set<bddvar>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = const std::set<bddvar>*;
-    using reference = const std::set<bddvar>&;
+    using iterator_category = std::input_iterator_tag;   ///< イテレータカテゴリ（入力イテレータ）
+    using value_type = std::set<bddvar>;                 ///< 値型（変数の集合）
+    using difference_type = std::ptrdiff_t;              ///< 差分型
+    using pointer = const std::set<bddvar>*;             ///< ポインタ型
+    using reference = const std::set<bddvar>&;           ///< 参照型
 
 private:
     const ZDD* zdd_;
@@ -56,29 +59,54 @@ private:
     mutable std::set<bddvar> cached_value_;
 
 public:
-    /// 終端イテレータ用コンストラクタ
+    /**
+     * @brief 終端イテレータ用デフォルトコンストラクタ
+     *
+     * 範囲ベースforループ等でend()として使用される終端イテレータを生成する。
+     */
     DictIterator() : zdd_(nullptr), current_(0), count_(0), reverse_(false), is_end_(true) {}
 
-    /// 通常コンストラクタ（beginイテレータ用）
+    /**
+     * @brief 通常コンストラクタ（beginイテレータ用）
+     * @param zdd 列挙対象のZDDへのポインタ
+     * @param count ZDDの濃度（集合の総数）
+     * @param reverse trueの場合、辞書順降順で列挙する
+     */
     DictIterator(const ZDD* zdd, int64_t count, bool reverse);
 
-    /// 終端判定
+    /**
+     * @brief イテレータが終端に達したかどうかを判定する
+     * @return 終端に達している場合はtrue
+     */
     bool at_end() const;
 
-    /// 参照外し
+    /**
+     * @brief 現在の集合を取得する（参照外し演算子）
+     * @return 現在指している変数の集合
+     */
     std::set<bddvar> operator*() const;
 
-    /// 前置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（前置インクリメント）
+     * @return インクリメント後の自身への参照
+     */
     DictIterator& operator++();
 
-    /// 後置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（後置インクリメント）
+     * @return インクリメント前のイテレータのコピー
+     */
     DictIterator operator++(int) {
         DictIterator tmp = *this;
         ++(*this);
         return tmp;
     }
 
-    /// 等価比較
+    /**
+     * @brief 等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが同じ位置を指している場合はtrue
+     */
     bool operator==(const DictIterator& other) const {
         // Both at end = equal, neither at end = compare current_
         if (at_end() && other.at_end()) return true;
@@ -86,7 +114,11 @@ public:
         return current_ == other.current_ && reverse_ == other.reverse_;
     }
 
-    /// 不等価比較
+    /**
+     * @brief 不等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが異なる位置を指している場合はtrue
+     */
     bool operator!=(const DictIterator& other) const {
         return !(*this == other);
     }
@@ -95,8 +127,9 @@ public:
 /**
  * @brief 重み順イテレータ
  *
- * ZDD内の集合を重み順（昇順または降順）で列挙します。
- * 内部的にZDDのコピーを保持し、各イテレーションで現在の最小/最大集合を取り除きます。
+ * ZDD内の集合を重み順（昇順または降順）で列挙する入力イテレータ。
+ * 内部的にZDDのコピーを保持し、各イテレーションで現在の最小/最大重みの
+ * 集合を取り出して取り除く。
  *
  * @code{.cpp}
  * std::vector<int64_t> weights = {0, 1, 2, 3};
@@ -105,14 +138,16 @@ public:
  *     // 重み昇順でsを処理
  * }
  * @endcode
+ *
+ * @see DictIterator, RandomIterator, weight_range
  */
 class WeightIterator {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = std::set<bddvar>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = const std::set<bddvar>*;
-    using reference = const std::set<bddvar>&;
+    using iterator_category = std::input_iterator_tag;   ///< イテレータカテゴリ（入力イテレータ）
+    using value_type = std::set<bddvar>;                 ///< 値型（変数の集合）
+    using difference_type = std::ptrdiff_t;              ///< 差分型
+    using pointer = const std::set<bddvar>*;             ///< ポインタ型
+    using reference = const std::set<bddvar>&;           ///< 参照型
 
 private:
     ZDD* remaining_;  // owned pointer to remaining ZDD
@@ -120,47 +155,99 @@ private:
     bool is_min_;
     std::set<bddvar> current_;
 
+    /**
+     * @brief 現在の集合を更新する
+     *
+     * 残りのZDDから最小/最大重みの集合を取得し、current_に格納する。
+     */
     void updateCurrent();
 
 public:
-    /// 終端イテレータ用コンストラクタ
+    /**
+     * @brief 終端イテレータ用デフォルトコンストラクタ
+     *
+     * end()として使用される終端イテレータを生成する。
+     */
     WeightIterator();
 
-    /// 通常コンストラクタ
+    /**
+     * @brief 通常コンストラクタ
+     * @param zdd 列挙対象のZDD
+     * @param weights 各変数の重み（インデックス0は変数1の重み）
+     * @param is_min trueの場合は昇順（最小重みから）、falseの場合は降順（最大重みから）
+     */
     WeightIterator(const ZDD& zdd, const std::vector<int64_t>& weights, bool is_min);
 
-    /// コピーコンストラクタ
+    /**
+     * @brief コピーコンストラクタ
+     * @param other コピー元のイテレータ
+     */
     WeightIterator(const WeightIterator& other);
 
-    /// ムーブコンストラクタ
+    /**
+     * @brief ムーブコンストラクタ
+     * @param other ムーブ元のイテレータ
+     */
     WeightIterator(WeightIterator&& other) noexcept;
 
-    /// コピー代入
+    /**
+     * @brief コピー代入演算子
+     * @param other コピー元のイテレータ
+     * @return 自身への参照
+     */
     WeightIterator& operator=(const WeightIterator& other);
 
-    /// ムーブ代入
+    /**
+     * @brief ムーブ代入演算子
+     * @param other ムーブ元のイテレータ
+     * @return 自身への参照
+     */
     WeightIterator& operator=(WeightIterator&& other) noexcept;
 
-    /// デストラクタ
+    /**
+     * @brief デストラクタ
+     *
+     * 内部で保持しているZDDのコピーを解放する。
+     */
     ~WeightIterator();
 
-    /// 参照外し
+    /**
+     * @brief 現在の集合を取得する（参照外し演算子）
+     * @return 現在指している変数の集合
+     */
     std::set<bddvar> operator*() const { return current_; }
 
-    /// 前置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（前置インクリメント）
+     *
+     * 現在の集合をZDDから取り除き、次の最小/最大重みの集合に進む。
+     *
+     * @return インクリメント後の自身への参照
+     */
     WeightIterator& operator++();
 
-    /// 後置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（後置インクリメント）
+     * @return インクリメント前のイテレータのコピー
+     */
     WeightIterator operator++(int) {
         WeightIterator tmp = *this;
         ++(*this);
         return tmp;
     }
 
-    /// 等価比較
+    /**
+     * @brief 等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが同じ状態にある場合はtrue
+     */
     bool operator==(const WeightIterator& other) const;
 
-    /// 不等価比較
+    /**
+     * @brief 不等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが異なる状態にある場合はtrue
+     */
     bool operator!=(const WeightIterator& other) const {
         return !(*this == other);
     }
@@ -169,8 +256,9 @@ public:
 /**
  * @brief ランダム順イテレータ
  *
- * ZDD内の集合をランダム順で列挙します（重複なし）。
- * 内部的にZDDのコピーを保持し、各イテレーションでサンプルした集合を取り除きます。
+ * ZDD内の集合をランダム順で重複なく列挙する入力イテレータ。
+ * 内部的にZDDのコピーを保持し、各イテレーションでランダムに
+ * サンプルした集合を取り出して取り除く。
  *
  * @code{.cpp}
  * std::mt19937 rng(42);
@@ -179,61 +267,115 @@ public:
  *     // ランダム順でsを処理
  * }
  * @endcode
+ *
+ * @see DictIterator, WeightIterator, get_uniformly_random_zdd
  */
 class RandomIterator {
 public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = std::set<bddvar>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = const std::set<bddvar>*;
-    using reference = const std::set<bddvar>&;
+    using iterator_category = std::input_iterator_tag;   ///< イテレータカテゴリ（入力イテレータ）
+    using value_type = std::set<bddvar>;                 ///< 値型（変数の集合）
+    using difference_type = std::ptrdiff_t;              ///< 差分型
+    using pointer = const std::set<bddvar>*;             ///< ポインタ型
+    using reference = const std::set<bddvar>&;           ///< 参照型
 
 private:
     ZDD* remaining_;  // owned pointer to remaining ZDD
     std::mt19937* rng_;  // external RNG (not owned)
     std::set<bddvar> current_;
 
+    /**
+     * @brief 現在の集合を更新する
+     *
+     * 残りのZDDからランダムに一つの集合をサンプルし、current_に格納する。
+     */
     void updateCurrent();
 
 public:
-    /// 終端イテレータ用コンストラクタ
+    /**
+     * @brief 終端イテレータ用デフォルトコンストラクタ
+     *
+     * end()として使用される終端イテレータを生成する。
+     */
     RandomIterator();
 
-    /// 通常コンストラクタ
+    /**
+     * @brief 通常コンストラクタ
+     * @param zdd 列挙対象のZDD
+     * @param rng 乱数生成器への参照（外部所有、イテレータより長い寿命が必要）
+     */
     RandomIterator(const ZDD& zdd, std::mt19937& rng);
 
-    /// コピーコンストラクタ
+    /**
+     * @brief コピーコンストラクタ
+     * @param other コピー元のイテレータ
+     */
     RandomIterator(const RandomIterator& other);
 
-    /// ムーブコンストラクタ
+    /**
+     * @brief ムーブコンストラクタ
+     * @param other ムーブ元のイテレータ
+     */
     RandomIterator(RandomIterator&& other) noexcept;
 
-    /// コピー代入
+    /**
+     * @brief コピー代入演算子
+     * @param other コピー元のイテレータ
+     * @return 自身への参照
+     */
     RandomIterator& operator=(const RandomIterator& other);
 
-    /// ムーブ代入
+    /**
+     * @brief ムーブ代入演算子
+     * @param other ムーブ元のイテレータ
+     * @return 自身への参照
+     */
     RandomIterator& operator=(RandomIterator&& other) noexcept;
 
-    /// デストラクタ
+    /**
+     * @brief デストラクタ
+     *
+     * 内部で保持しているZDDのコピーを解放する。
+     * 乱数生成器は外部所有のため解放しない。
+     */
     ~RandomIterator();
 
-    /// 参照外し
+    /**
+     * @brief 現在の集合を取得する（参照外し演算子）
+     * @return 現在指している変数の集合
+     */
     std::set<bddvar> operator*() const { return current_; }
 
-    /// 前置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（前置インクリメント）
+     *
+     * 現在の集合をZDDから取り除き、残りからランダムに次の集合をサンプルする。
+     *
+     * @return インクリメント後の自身への参照
+     */
     RandomIterator& operator++();
 
-    /// 後置インクリメント
+    /**
+     * @brief イテレータを次の集合に進める（後置インクリメント）
+     * @return インクリメント前のイテレータのコピー
+     */
     RandomIterator operator++(int) {
         RandomIterator tmp = *this;
         ++(*this);
         return tmp;
     }
 
-    /// 等価比較
+    /**
+     * @brief 等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが同じ状態にある場合はtrue
+     */
     bool operator==(const RandomIterator& other) const;
 
-    /// 不等価比較
+    /**
+     * @brief 不等価比較演算子
+     * @param other 比較対象のイテレータ
+     * @return 二つのイテレータが異なる状態にある場合はtrue
+     */
     bool operator!=(const RandomIterator& other) const {
         return !(*this == other);
     }

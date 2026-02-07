@@ -23,6 +23,8 @@ API リファレンス
 コアクラス
 ~~~~~~~~~~
 
+→ :doc:`../guide/bdd_guide` | :doc:`../guide/zdd_guide`
+
 * :cpp:class:`sbdd2::DDManager` - ノード管理、キャッシュ、GC
 * :cpp:class:`sbdd2::DDNode` - 128ビットノード構造
 * :cpp:class:`sbdd2::DDNodeRef` - ノードへの読み取り専用参照
@@ -30,6 +32,8 @@ API リファレンス
 
 決定図クラス
 ~~~~~~~~~~~~
+
+→ :doc:`../guide/bdd_guide` | :doc:`../guide/zdd_guide` | :doc:`../guide/mvdd_guide`
 
 * :cpp:class:`sbdd2::BDD` - 縮約BDD
 * :cpp:class:`sbdd2::ZDD` - 縮約ZDD
@@ -49,6 +53,8 @@ API リファレンス
 
 ユーティリティクラス
 ~~~~~~~~~~~~~~~~~~~~
+
+→ :doc:`../guide/gbase_guide` | :doc:`../application/graph_problems`
 
 * :cpp:class:`sbdd2::GBase` - グラフベース（パス/サイクル列挙）
 * :cpp:class:`sbdd2::BDDCT` - コストテーブル
@@ -84,6 +90,8 @@ API リファレンス
 I/O関連
 ~~~~~~~
 
+→ :doc:`../guide/io_guide`
+
 * ``DDFileFormat`` - ファイル形式列挙型
 * ``ExportOptions`` - エクスポートオプション
 * ``ImportOptions`` - インポートオプション
@@ -91,6 +99,8 @@ I/O関連
 
 TdZdd互換インターフェース
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+
+→ :doc:`../guide/tdzdd_guide`
 
 * ``DdSpec`` - Specベースクラス（状態あり）
 * ``StatelessDdSpec`` - Specベースクラス（状態なし）

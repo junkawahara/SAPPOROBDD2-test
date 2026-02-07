@@ -8,6 +8,10 @@ SAPPOROBDD 2.0は、SAPPOROBDD++をベースに設計された新しい決定図
 BDD（Binary Decision Diagram）とZDD（Zero-suppressed Decision Diagram）を効率的に操作するための
 高性能なC++ライブラリを提供します。
 
+.. tip::
+
+   SAPPOROBDD++からの移行をお考えの方は :doc:`migration` をご覧ください。
+
 決定図について
 --------------
 
@@ -60,7 +64,7 @@ SAPPOROBDD 2.0では、**変数番号（Variable Number）** と **レベル（L
 **SAPPOROBDD規約**:
 
 * **終端（Terminal）はレベル 0**
-* **レベルが大きいほど根に近い**（根が最上位）
+* **レベルが大きいほど根に近い** （根が最上位）
 * **レベルが小さいほど終端に近い**
 
 .. code-block:: text
@@ -156,3 +160,12 @@ Specインターフェースを提供します。既存のTdZdd用Specクラス�
 GMPライブラリがインストールされている場合、``exact_count()`` メソッドで
 任意精度の厳密なカウントが可能です。double精度（2^53）を超える
 大規模な集合族でも正確なカウントを取得できます。
+
+次のステップ
+------------
+
+* :doc:`quickstart` — インストールと基本的な使い方
+* :doc:`guide/index` — DD種別ごとの詳細ガイド
+* :doc:`application/index` — タスク指向の応用ガイド
+* :doc:`examples/index` — サンプルコードの詳細解説
+* :doc:`api/index` — APIリファレンス

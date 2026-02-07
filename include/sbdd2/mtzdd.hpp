@@ -49,6 +49,8 @@ template<typename T> class MTBDD;
  * // 演算
  * MTZDD<int> result = x1 + c;
  * @endcode
+ *
+ * @see MTBDD, DDManager, ZDD
  */
 template<typename T>
 class MTZDD : public MTDDBase<T> {
@@ -96,6 +98,14 @@ public:
      * @param mgr DDマネージャー
      * @param value 終端値
      * @return 単一の終端値を持つMTZDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * MTZDD<int> c = MTZDD<int>::constant(mgr, 42);
+     * MTZDD<double> d = MTZDD<double>::constant(mgr, 0.5);
+     * @endcode
+     *
+     * @see ite(), from_zdd(), MTBDD::constant()
      */
     static MTZDD constant(DDManager& mgr, const T& value) {
         MTBDDTerminalTable<T>& table = mgr.template get_or_create_terminal_table<T>();
@@ -116,6 +126,16 @@ public:
      * @param high v=1の場合の子MTZDD
      * @param low v=0の場合の子MTZDD
      * @return 作成されたMTZDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * auto hi = MTZDD<int>::constant(mgr, 1);
+     * auto lo = MTZDD<int>::constant(mgr, 0);
+     * auto x1 = MTZDD<int>::ite(mgr, 1, hi, lo);
+     * @endcode
+     *
+     * @see constant(), MTBDD::ite()
      */
     static MTZDD ite(DDManager& mgr, bddvar v, const MTZDD& high, const MTZDD& low) {
         if (v == 0 || v > mgr.var_count()) {
@@ -139,6 +159,16 @@ public:
      * @param zero_val ZDDの終端0に対応する値（デフォルト: T{}）
      * @param one_val ZDDの終端1に対応する値（デフォルト: T{1}）
      * @return 変換されたMTZDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * mgr.new_var();
+     * ZDD z1 = mgr.var_zdd(1);  // {{1}}
+     * // ZDDをint型のMTZDDに変換（0->0, 1->1）
+     * auto mt = MTZDD<int>::from_zdd(z1);
+     * @endcode
+     *
+     * @see MTBDD::from_bdd(), ZDD
      */
     static MTZDD from_zdd(const ZDD& zdd,
                           const T& zero_val = T{},
@@ -207,11 +237,23 @@ public:
     /**
      * @brief 汎用apply演算
      *
+     * 2つのMTZDDに対して終端値同士で二項演算を適用します。
+     * ZDD縮約規則に従ってノードが作成されます。
+     *
      * @tparam BinaryOp 二項演算関数型
      * @param other 第2オペランド
      * @param op 二項演算（(T, T) -> T）
      * @param cache_op キャッシュ用の操作タイプ（省略可）
      * @return 演算結果
+     *
+     * @code{.cpp}
+     * // カスタム演算: 2つのMTZDDの終端値の最大値
+     * auto result = a.apply(b, [](int x, int y) {
+     *     return std::max(x, y);
+     * });
+     * @endcode
+     *
+     * @see MTBDD::apply()
      */
     template<typename BinaryOp>
     MTZDD apply(const MTZDD& other, BinaryOp op, CacheOp cache_op = CacheOp::CUSTOM) const {
@@ -235,9 +277,14 @@ public:
     /**
      * @brief ITE演算 (if this then then_case else else_case)
      *
+     * thisの終端値がゼロ（T{}）なら else_case、非ゼロなら then_case を選択します。
+     * ZDD縮約規則に従ってノードが作成されます。
+     *
      * @param then_case thisが「真」（非ゼロ）の場合の値
      * @param else_case thisが「偽」（ゼロ）の場合の値
      * @return ITE結果
+     *
+     * @see MTBDD::ite()
      */
     MTZDD ite(const MTZDD& then_case, const MTZDD& else_case) const {
         if (!is_valid() || !then_case.is_valid() || !else_case.is_valid()) {
@@ -262,6 +309,14 @@ public:
      *
      * @param assignment 変数番号からbool値へのマッピング（インデックス0は未使用）
      * @return 評価結果の終端値
+     *
+     * @code{.cpp}
+     * // 変数1=true, 変数2=false での評価
+     * std::vector<bool> assign = {false, true, false};  // index 0は未使用
+     * int val = mt.evaluate(assign);
+     * @endcode
+     *
+     * @see MTBDD::evaluate()
      */
     T evaluate(const std::vector<bool>& assignment) const {
         if (!is_valid()) {

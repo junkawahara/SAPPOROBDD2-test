@@ -12,6 +12,7 @@
 #define SBDD2_MVBDD_HPP
 
 #include "mvdd_base.hpp"
+#include "mvdd_node_ref.hpp"
 #include "bdd.hpp"
 #include <initializer_list>
 
@@ -43,6 +44,8 @@ namespace sbdd2 {
  * // ITE構築
  * MVBDD t = MVBDD::ite(f, 1, {child0, child1, child2, child3});
  * @endcode
+ *
+ * @see MVZDD, DDManager, BDD
  */
 class MVBDD : public MVDDBase {
 private:
@@ -96,6 +99,8 @@ public:
      * @param mgr DDマネージャー
      * @param k 値域サイズ
      * @return 定数0を表すMVBDD
+     *
+     * @see one(), MVZDD::empty()
      */
     static MVBDD zero(DDManager& mgr, int k) {
         return MVBDD(&mgr, k, false);
@@ -106,6 +111,15 @@ public:
      * @param mgr DDマネージャー
      * @param k 値域サイズ
      * @return 定数1を表すMVBDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * MVBDD f = MVBDD::one(mgr, 4);  // k=4 の定数1
+     * f.new_var();  // MVDD変数1を作成
+     * f.new_var();  // MVDD変数2を作成
+     * @endcode
+     *
+     * @see zero(), MVZDD::single()
      */
     static MVBDD one(DDManager& mgr, int k) {
         return MVBDD(&mgr, k, true);
@@ -117,6 +131,16 @@ public:
      * @param mv MVDD変数番号
      * @param value 値 (0 to k-1)
      * @return [mv = value]
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * MVBDD f = MVBDD::one(mgr, 4);
+     * f.new_var();
+     * // 変数1 == 2 を表すリテラル
+     * MVBDD lit = MVBDD::single(f, 1, 2);
+     * @endcode
+     *
+     * @see ite(), MVZDD::singleton()
      */
     static MVBDD single(const MVBDD& base, bddvar mv, int value);
 
@@ -128,6 +152,10 @@ public:
     /**
      * @brief 新しいMVDD変数を追加
      * @return 新しいMVDD変数番号
+     *
+     * 内部的に k-1 個のDD変数が DDManager に作成されます。
+     *
+     * @see DDManager::new_mvdd_var(), MVZDD::new_var()
      */
     bddvar new_var() {
         auto dd_vars = manager_->new_mvdd_var(k());
@@ -148,6 +176,18 @@ public:
      * @param mv MVDD変数番号
      * @param children k個の子MVBDD (children[i] = 変数mvが値iを取る場合)
      * @return 構築されたMVBDD
+     *
+     * @code{.cpp}
+     * DDManager mgr;
+     * MVBDD f = MVBDD::one(mgr, 3);  // k=3
+     * f.new_var();
+     * auto c0 = MVBDD::zero(mgr, 3);
+     * auto c1 = MVBDD::one(mgr, 3);
+     * auto c2 = MVBDD::one(mgr, 3);
+     * MVBDD t = MVBDD::ite(f, 1, {c0, c1, c2});
+     * @endcode
+     *
+     * @see single(), MVZDD::ite()
      */
     static MVBDD ite(const MVBDD& base, bddvar mv,
                      const std::vector<MVBDD>& children);
@@ -156,6 +196,20 @@ public:
     static MVBDD ite(const MVBDD& base, bddvar mv,
                      std::initializer_list<MVBDD> children) {
         return ite(base, mv, std::vector<MVBDD>(children));
+    }
+
+    /// @}
+
+    /// @name ノード参照
+    /// @{
+
+    /**
+     * @brief ルートノードへの軽量参照を取得
+     * @return MVDDNodeRef
+     * @warning 返された参照はこの MVBDD より長く生存してはいけません
+     */
+    MVDDNodeRef root_ref() const {
+        return MVDDNodeRef(manager_, bdd_.arc(), var_table_.get());
     }
 
     /// @}
@@ -232,6 +286,14 @@ public:
      * @brief 変数割り当てに対する評価
      * @param assignment MVDD変数番号 -> 値のマッピング (0-indexed配列、要素数はmvdd_var_count以上)
      * @return ブール値
+     *
+     * @code{.cpp}
+     * // MVDD変数1=2, 変数2=0 での評価
+     * std::vector<int> assign = {2, 0};
+     * bool val = f.evaluate(assign);
+     * @endcode
+     *
+     * @see MVZDD::evaluate()
      */
     bool evaluate(const std::vector<int>& assignment) const;
 
@@ -241,6 +303,7 @@ public:
     /// @{
 
     /// 内部BDD表現を取得
+    /// @see from_bdd(), MVZDD::to_zdd()
     const BDD& to_bdd() const { return bdd_; }
 
     /**
@@ -248,6 +311,8 @@ public:
      * @param base 変数マッピング情報
      * @param bdd 内部BDD
      * @return MVBDD
+     *
+     * @see to_bdd(), MVZDD::from_zdd()
      */
     static MVBDD from_bdd(const MVBDD& base, const BDD& bdd) {
         return MVBDD(base.manager_, base.var_table_, bdd);
@@ -278,6 +343,8 @@ public:
      * 内部BDDノードではなく、MVDD変数ごとにカウントします。
      *
      * @return MVBDDノード数
+     *
+     * @see size(), MVZDD::mvzdd_node_count()
      */
     std::size_t mvbdd_node_count() const;
 

@@ -6,6 +6,10 @@
 BDDによるブール関数の表現
 -------------------------
 
+.. seealso::
+
+   BDDの詳細は :doc:`guide/bdd_guide` を参照してください。
+
 例: 多数決関数
 ~~~~~~~~~~~~~~
 
@@ -42,6 +46,10 @@ BDDによるブール関数の表現
 
 ZDDによる組合せ列挙
 -------------------
+
+.. seealso::
+
+   ZDDの詳細は :doc:`guide/zdd_guide`、組合せ列挙パターンは :doc:`application/combinatorial_enumeration` を参照してください。
 
 例: グラフの独立集合
 ~~~~~~~~~~~~~~~~~~~~
@@ -95,6 +103,10 @@ ZDDによる組合せ列挙
 GBaseによるパス列挙
 -------------------
 
+.. seealso::
+
+   GBaseの詳細は :doc:`guide/gbase_guide`、グラフ問題の応用は :doc:`application/graph_problems` を参照してください。
+
 GBaseクラスを使ってグラフ上のパスを列挙します。
 
 .. code-block:: cpp
@@ -119,6 +131,10 @@ GBaseクラスを使ってグラフ上のパスを列挙します。
 
 BDDCTによるコスト制約付き列挙
 -----------------------------
+
+.. seealso::
+
+   コスト制約付き列挙の詳細は :doc:`application/combinatorial_enumeration` を参照してください。
 
 コスト制約のある組合せを効率的に列挙します。
 
@@ -162,6 +178,10 @@ BDDCTによるコスト制約付き列挙
 
 UnreducedBDD/ZDDの使用
 ----------------------
+
+.. seealso::
+
+   TdZddによるトップダウン構築の詳細は :doc:`guide/tdzdd_guide` を参照してください。
 
 トップダウン構築法などで非縮約DDを使用し、最後に縮約する例です。
 

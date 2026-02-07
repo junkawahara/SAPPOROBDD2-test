@@ -1,6 +1,11 @@
 拡張DDクラス
 ============
 
+.. seealso::
+
+   TdZddによるトップダウン構築は :doc:`../guide/tdzdd_guide` を参照してください。
+   PiDD/SeqBDDの詳細は :doc:`../guide/mvdd_guide` も参照してください。
+
 UnreducedBDD
 ------------
 
