@@ -104,7 +104,9 @@ int main() {
 
 ## ドキュメント
 
-詳細なドキュメントは `docs/` ディレクトリにあり、Sphinx + Breathe でビルドできます。
+**[オンラインドキュメント](https://junkawahara.github.io/SAPPOROBDD2-test/)**
+
+ドキュメントは `docs/` ディレクトリからローカルでもビルドできます（Sphinx + Breathe）。
 
 ```bash
 cd docs

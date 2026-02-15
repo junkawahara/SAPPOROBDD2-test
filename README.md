@@ -106,7 +106,9 @@ int main() {
 
 ## Documentation
 
-Full documentation is available in the `docs/` directory, built with Sphinx + Breathe:
+**[Online Documentation](https://junkawahara.github.io/SAPPOROBDD2-test/)**
+
+Documentation can also be built locally from the `docs/` directory with Sphinx + Breathe:
 
 ```bash
 cd docs
