@@ -108,8 +108,8 @@ SAPPOROBDD 2.0をCMakeプロジェクトから利用する場合：
 
 .. code-block:: cmake
 
-   find_package(sbdd2 REQUIRED)
-   target_link_libraries(your_target sbdd2)
+   add_subdirectory(path/to/SAPPOROBDD2)
+   target_link_libraries(your_target sbdd2_static)
 
 
 初期化の変更
@@ -277,8 +277,8 @@ BDD API 対応表
      - ``f.restrict(v, value)``
      - 変数ごとに適用
    * - ``f.Swap(v1, v2)``
-     - （未実装）
-     - 将来実装予定
+     - ``f.swap(v1, v2)``
+     -
    * - （なし）
      - ``f.ite(t, e)``
      - ITE演算（新規）

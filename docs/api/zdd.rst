@@ -43,7 +43,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD family = s1 + s2 + s1.product(s2);  // {{1}, {2}, {1,2}}
+   ZDD family = s1 + s2 + s1 * s2;  // {{1}, {2}, {1,2}}
 
    // 要素1を含む集合（1を除去）
    ZDD with_1 = family.onset(1);  // {{}, {2}}
@@ -63,14 +63,14 @@ onset/offset演算
    ZDD b = ZDD::singleton(mgr, 3) + ZDD::singleton(mgr, 4);  // {{3}, {4}}
 
    // 直積: 各集合の和を取る
-   ZDD prod = a.product(b);  // {{1,3}, {1,4}, {2,3}, {2,4}}
+   ZDD prod = a * b;  // {{1,3}, {1,4}, {2,3}, {2,4}}
 
 列挙
 ~~~~
 
 .. code-block:: cpp
 
-   ZDD family = s1 + s2 + s1.product(s2);
+   ZDD family = s1 + s2 + s1 * s2;
 
    // 全集合を列挙
    auto sets = family.enumerate();
@@ -92,7 +92,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+   ZDD s12 = ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);  // {{1,2}}
 
    // 2つの変数を交換
    ZDD swapped = s12.swap(1, 2);  // {{1,2}} (この場合は同じ)
@@ -106,7 +106,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD f = s1 + s2 + s1.product(s2);  // {{1}, {2}, {1,2}}
+   ZDD f = s1 + s2 + s1 * s2;  // {{1}, {2}, {1,2}}
    ZDD g = s1;  // {{1}}
 
    // restrict: gで許可される変数のみを含む集合に制限
@@ -123,7 +123,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD family = s1 + s2 + s1.product(s2);  // {{1}, {2}, {1,2}}
+   ZDD family = s1 + s2 + s1 * s2;  // {{1}, {2}, {1,2}}
 
    // リテラル総数（全集合の要素数の合計）
    uint64_t lits = family.lit();  // 4 (1+1+2)
@@ -155,7 +155,7 @@ onset/offset演算
 
 .. code-block:: cpp
 
-   ZDD s12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
+   ZDD s12 = ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);  // {{1,2}}
 
    // 1が含まれるなら2も含まれるか
    int implies = s12.imply_chk(1, 2);  // 1 (1 => 2)
@@ -184,8 +184,8 @@ Meet演算
 
 .. code-block:: cpp
 
-   ZDD a = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));  // {{1,2}}
-   ZDD b = ZDD::singleton(mgr, 2).product(ZDD::singleton(mgr, 3));  // {{2,3}}
+   ZDD a = ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);  // {{1,2}}
+   ZDD b = ZDD::singleton(mgr, 2) * ZDD::singleton(mgr, 3);  // {{2,3}}
 
    // Meet: 要素ごとの積集合
    ZDD meet_result = zdd_meet(a, b);  // {{2}} ({1,2} ∩ {2,3} = {2})
@@ -218,6 +218,32 @@ GMPまたはBigIntライブラリが利用可能な場合、``exact_count()`` �
 .. note::
    ``exact_count()`` は ``SBDD2_HAS_GMP`` または ``SBDD2_HAS_BIGINT`` が定義されている場合に使用可能です。
    CMakeがGMPを自動検出し、見つからない場合はBigIntライブラリをフォールバックとして使用します。
+
+重みの総和
+~~~~~~~~~~
+
+集合族に含まれる全集合の重みの総和を計算します。
+
+.. code-block:: cpp
+
+   DDManager mgr;
+   for (int i = 1; i <= 5; ++i) mgr.new_var();
+
+   ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2);
+   // family = {{1}, {2}}
+
+   std::vector<int64_t> weights = {0, 10, 20, 30, 40, 50};
+
+   // int64_t で計算
+   int64_t total = family.sum_weight(weights);  // 10 + 20 = 30
+
+   // 厳密計算（GMP / BigInt使用時）
+   #if defined(SBDD2_HAS_GMP) || defined(SBDD2_HAS_BIGINT)
+   std::string exact_total = family.exact_sum_weight(weights);  // "30"
+   #endif
+
+.. note::
+   ``exact_sum_weight()`` は ``SBDD2_HAS_GMP`` または ``SBDD2_HAS_BIGINT`` が定義されている場合に使用可能です。
 
 ZDDイテレータ
 -------------
@@ -381,7 +407,7 @@ ZDDExactIndexData（厳密整数版）
    for (int i = 1; i <= 5; ++i) mgr.new_var();
 
    ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
-                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
+                ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);
    // family = {{1}, {2}, {1,2}}
 
    std::cout << "辞書順:" << std::endl;

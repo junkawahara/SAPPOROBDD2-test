@@ -338,7 +338,7 @@ BDDCTによるコスト制約付き列挙
    // 全部分集合を作成
    ZDD all = ZDD::single(mgr);
    for (int i = 1; i <= 5; ++i) {
-       all = all + all.product(ZDD::singleton(mgr, i));
+       all = all + all * ZDD::singleton(mgr, i);
    }
 
    // コスト50以下の集合を抽出
@@ -465,7 +465,7 @@ SVG出力
    for (int i = 1; i <= 3; ++i) mgr.new_var();
 
    ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
-                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
+                ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);
 
    // デフォルトオプションでSVG出力
    export_zdd_as_svg(family, "family.svg");

@@ -219,3 +219,21 @@ CacheEntry
 .. cpp:var:: constexpr std::size_t sbdd2::DEFAULT_CACHE_SIZE = 1 << 18
 
    デフォルトキャッシュサイズ（256Kエントリ）
+
+ユーティリティ関数
+------------------
+
+default_manager
+~~~~~~~~~~~~~~~~
+
+.. doxygenfunction:: sbdd2::default_manager
+
+グローバルなデフォルト ``DDManager`` を返します。
+シングルスレッド環境での簡易使用を想定しています。
+
+.. code-block:: cpp
+
+   // デフォルトマネージャーを使用
+   DDManager& mgr = default_manager();
+   mgr.new_var();
+   BDD x1 = mgr.var_bdd(1);

@@ -58,6 +58,7 @@
 namespace sbdd2 {
 
 /// @name ライブラリバージョン情報
+/// @note バージョンを変更する際は CMakeLists.txt の project(VERSION ...) と同期してください
 /// @{
 constexpr int VERSION_MAJOR = 2;  ///< メジャーバージョン番号
 constexpr int VERSION_MINOR = 0;  ///< マイナーバージョン番号
@@ -67,6 +68,7 @@ constexpr int VERSION_PATCH = 0;  ///< パッチバージョン番号
 /**
  * @brief ライブラリのバージョン文字列を取得する
  * @return バージョン文字列（例: "2.0.0"）
+ * @note バージョンを変更する際は CMakeLists.txt の project(VERSION ...) と同期してください
  */
 inline const char* version() {
     return "2.0.0";

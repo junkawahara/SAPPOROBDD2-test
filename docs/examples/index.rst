@@ -25,6 +25,10 @@
    nqueens
    hamiltonian
    cnf
+   tictactoe
+   gameoflife
+   apply
+   relprod
 
 ビルド方法
 ----------
@@ -44,3 +48,7 @@
    make nqueens
    make hamiltonian
    make cnf
+   make tictactoe
+   make gameoflife
+   make apply
+   make relprod

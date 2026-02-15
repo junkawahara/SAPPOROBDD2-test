@@ -17,7 +17,7 @@
 .. code-block:: bash
 
    # リポジトリをクローン
-   git clone https://github.com/your-repo/SAPPOROBDD2.git
+   git clone <SAPPOROBDD2のリポジトリURL>
    cd SAPPOROBDD2
 
    # ビルドディレクトリを作成
@@ -44,8 +44,8 @@ CMakeでの使用
 
 .. code-block:: cmake
 
-   find_package(sbdd2 REQUIRED)
-   target_link_libraries(your_target sbdd2)
+   add_subdirectory(path/to/SAPPOROBDD2)
+   target_link_libraries(your_target sbdd2_static)
 
 基本的な使い方
 --------------
@@ -122,11 +122,11 @@ ZDDの操作
 
    // 集合族演算
    ZDD family = s1 + s2 + s3;      // 和: {{1}, {2}, {3}}
-   ZDD inter = s1 * s2;            // 積: 空
+   ZDD inter = s1 & s2;            // 積集合: 空
    ZDD diff = family - s1;         // 差: {{2}, {3}}
 
-   // 直積
-   ZDD prod = s1.product(s2);      // {{1, 2}}
+   // 直積（join）
+   ZDD prod = s1 * s2;             // {{1, 2}}
 
    // カウントと列挙
    double card = family.card();    // 3.0

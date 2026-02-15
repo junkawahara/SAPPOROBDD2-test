@@ -50,6 +50,25 @@ MVDD 変数のマッピングを管理するテーブル。
    :members:
    :undoc-members:
 
+MVDDNodeRef
+-----------
+
+MVBDD/MVZDD 共通の軽量ノード参照クラスです。参照カウントを管理しないため、
+トラバーサル時のパフォーマンスに優れます。元の MVBDD/MVZDD より長く生存してはいけません。
+
+.. doxygenclass:: sbdd2::MVDDNodeRef
+   :members:
+   :undoc-members:
+
+主要メソッド:
+
+* ``is_valid()`` -- 有効な参照かどうか
+* ``is_terminal()`` -- 終端ノードか
+* ``mvdd_var()`` -- MVDD変数番号
+* ``k()`` -- 値域サイズ
+* ``child(int value)`` -- 指定値の子ノードへの参照
+* ``to_mvbdd()`` / ``to_mvzdd()`` -- MVBDD/MVZDDへの変換
+
 使用例
 ------
 

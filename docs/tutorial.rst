@@ -73,18 +73,18 @@ ZDDによる組合せ列挙
        // 全ての部分集合から開始
        ZDD all = ZDD::single(mgr);  // {∅}
        for (int i = 1; i <= 4; ++i) {
-           ZDD with_i = all.product(ZDD::singleton(mgr, i));
+           ZDD with_i = all * ZDD::singleton(mgr, i);
            all = all + with_i;  // iを含む/含まないを選択
        }
 
        // 隣接する頂点を同時に選ばない制約
        // エッジ (1,2), (2,3), (3,4) を除外
-       ZDD exclude_12 = ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
-       ZDD exclude_23 = ZDD::singleton(mgr, 2).product(ZDD::singleton(mgr, 3));
-       ZDD exclude_34 = ZDD::singleton(mgr, 3).product(ZDD::singleton(mgr, 4));
+       ZDD exclude_12 = ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);
+       ZDD exclude_23 = ZDD::singleton(mgr, 2) * ZDD::singleton(mgr, 3);
+       ZDD exclude_34 = ZDD::singleton(mgr, 3) * ZDD::singleton(mgr, 4);
 
        // 禁止パターンを含む集合を除外
-       ZDD invalid = all.product(exclude_12) + all.product(exclude_23) + all.product(exclude_34);
+       ZDD invalid = all * exclude_12 + all * exclude_23 + all * exclude_34;
        ZDD independent = all - invalid;
 
        std::cout << "独立集合の数: " << independent.card() << std::endl;
@@ -163,7 +163,7 @@ BDDCTによるコスト制約付き列挙
        // 全ての部分集合を作成
        ZDD all = ZDD::single(mgr);
        for (int i = 1; i <= 5; ++i) {
-           all = all + all.product(ZDD::singleton(mgr, i));
+           all = all + all * ZDD::singleton(mgr, i);
        }
 
        // コスト50以下の集合を抽出

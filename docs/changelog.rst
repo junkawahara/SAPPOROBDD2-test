@@ -1,7 +1,7 @@
 変更履歴
 ========
 
-Version 2.0.0 (2026-01-22 ~ 2026-01-26)
+Version 2.0.0 (2026-01-22 ~ 2026-02-07)
 -----------------------------------------
 
 SAPPOROBDD 2.0 の初回リリースです。
@@ -79,7 +79,7 @@ ZDD拡張
 
 * **ランキング/アンランキング**: 集合族の辞書順でのランク操作
 * **ZDDヘルパー関数**: ``onset()``, ``offset()``, ``change()``,
-  ``restrict()``, ``permit()``, ``product()``（→ ``join()``）
+  ``restrict()``, ``permit()``, ``join()``（``operator*``）
 
 I/O
 ~~~
@@ -106,5 +106,6 @@ I/O
   ``DDIncompatibleException``）
 * **変数レベル管理**: 変数番号とレベルの分離、``lev_of_var()``,
   ``var_of_lev()``, ``new_var_of_lev()``
-* **サンプルプログラム**: N-Queens、ハミルトン閉路、CNF SAT
+* **サンプルプログラム**: N-Queens、ハミルトン閉路、CNF SAT、
+  三目並べ（Tic-Tac-Toe）、Game of Life、apply、関係積（relprod）
   （bdd-benchmarkベース）

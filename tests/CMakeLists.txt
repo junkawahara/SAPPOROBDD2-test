@@ -18,6 +18,7 @@ add_executable(sbdd2_tests
     test_mtzdd.cpp
     test_mvzdd.cpp
     test_mvbdd.cpp
+    test_mvdd_node_ref.cpp
 )
 
 # Link against our library and GTest

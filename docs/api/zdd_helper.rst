@@ -161,7 +161,7 @@ get_random_zdd_with_card
 .. code-block:: cpp
 
    ZDD family = ZDD::singleton(mgr, 1) + ZDD::singleton(mgr, 2) +
-                ZDD::singleton(mgr, 1).product(ZDD::singleton(mgr, 2));
+                ZDD::singleton(mgr, 1) * ZDD::singleton(mgr, 2);
    // {{1}, {2}, {1,2}}
 
    std::vector<int> test1 = {1, 2};

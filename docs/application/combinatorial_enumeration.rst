@@ -30,7 +30,7 @@ n要素のべき集合（全ての部分集合からなる集合族）をZDDで�
        ZDD all = ZDD::single(mgr);
        for (int i = 1; i <= n; ++i) {
            // 各要素iについて「含む」「含まない」の選択を追加
-           all = all + all.product(ZDD::singleton(mgr, i));
+           all = all + all * ZDD::singleton(mgr, i);
        }
 
        std::cout << "部分集合の数: " << all.card() << std::endl;
@@ -84,7 +84,7 @@ onset/offsetによるフィルタリング
    // べき集合
    ZDD all = ZDD::single(mgr);
    for (int i = 1; i <= n; ++i) {
-       all = all + all.product(ZDD::singleton(mgr, i));
+       all = all + all * ZDD::singleton(mgr, i);
    }
 
    // 要素1を必ず含む集合のみ
@@ -112,8 +112,8 @@ restrictとpermitによる制約
 
    // restrict(p): pに含まれる要素のみ使用可能な部分集合に制限
    ZDD allowed_elements = ZDD::singleton(mgr, 1)
-                          .product(ZDD::singleton(mgr, 3))
-                          .product(ZDD::singleton(mgr, 5));
+                          * ZDD::singleton(mgr, 3)
+                          * ZDD::singleton(mgr, 5);
    ZDD restricted = all.restrict(allowed_elements);
    // {1,3,5}の部分集合のみ: {∅}, {1}, {3}, {5}, {1,3}, {1,5}, {3,5}, {1,3,5}
 
@@ -158,7 +158,7 @@ ZDDが表現する集合族から、一様ランダムに要素（集合）を�
        // 集合族を構築
        ZDD family = ZDD::single(mgr);
        for (int i = 1; i <= n; ++i) {
-           family = family + family.product(ZDD::singleton(mgr, i));
+           family = family + family * ZDD::singleton(mgr, i);
        }
 
        // ランダムサンプリング
@@ -210,7 +210,7 @@ ZDDが表現する集合族に対して、インデックス構造を構築す�
        // 集合族を構築
        ZDD family = ZDD::single(mgr);
        for (int i = 1; i <= n; ++i) {
-           family = family + family.product(ZDD::singleton(mgr, i));
+           family = family + family * ZDD::singleton(mgr, i);
        }
 
        // インデックス構造を構築
@@ -292,7 +292,7 @@ BDDCTクラスを使うと、各要素にコスト（重み）を割り当て、
        // 全部分集合を構築
        ZDD all = ZDD::single(mgr);
        for (int i = 1; i <= n; ++i) {
-           all = all + all.product(ZDD::singleton(mgr, i));
+           all = all + all * ZDD::singleton(mgr, i);
        }
 
        // コスト制約によるフィルタリング
@@ -355,7 +355,7 @@ BDDCTでは以下の操作が利用できます。
        // 全部分集合を構築
        ZDD all = ZDD::single(mgr);
        for (int i = 1; i <= n; ++i) {
-           all = all + all.product(ZDD::singleton(mgr, i));
+           all = all + all * ZDD::singleton(mgr, i);
        }
 
        // 重さの制約: 合計重量がcapacity以下
